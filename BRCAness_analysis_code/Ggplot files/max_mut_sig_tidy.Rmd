@@ -1,0 +1,50 @@
+---
+title: "Rtsne_mut_sig_euclidean"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(data.table)
+```
+
+## Import the Mutational signature data
+
+```{r}
+mut_sigs_origin <- read_tsv("../Data/aggregate_weights_4.txt")
+sampleIDs <- as.vector(as.data.frame(mut_sigs_origin)[,1])
+```
+
+## Save the column name with the max value to a DF
+
+```{r}
+mut_sigs <- mut_sigs_origin[,-1]
+mut_sigs <- as.matrix(mut_sigs)
+row.names(mut_sigs) <- sampleIDs
+
+colnames(mut_sigs)[max.col(mut_sigs,ties.method="first")]
+
+test_lime_orange_lemon <- NULL
+test_lime_orange_lemon <- cbind(test_lime_orange_lemon, sampleIDs)
+test_lime_orange_lemon <- cbind(test_lime_orange_lemon,colnames(mut_sigs)[max.col(mut_sigs,ties.method="first")])
+colnames(test_lime_orange_lemon) <- c("Sample_ID", "Max_signature")
+```
+
+## Save DF to file
+
+```{r}
+write.table(test_lime_orange_lemon, file="Max_signatures.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+```
+
+
+

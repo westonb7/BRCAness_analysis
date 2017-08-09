@@ -1,0 +1,214 @@
+---
+title: "Rtsne_gene_expression"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+## Import the necessary datasets into a dataframe
+
+```{r}
+#gene_expression_data <- (read_tsv("../Data/brca_pancan.txt"))
+#sampleIDs <- as.vector(as.data.frame(gene_expression_data)[,1])
+```
+
+## Import HiSeq data 
+
+```{r}
+hiseq_data <- read_tsv("../Data/brca_hiseq.txt")
+hiseq_data <- hiseq_data[,-ncol(hiseq_data)] # Remove last column because it has blank values
+hiseq_data <- select(hiseq_data, Sample_ID, ERBB2)
+
+#hiseq_data <- as.data.frame(read_tsv("../Data/brca_hiseq.txt"))
+#hiseq_IDs <- as.vector(hiseq_data)[,1]
+#hiseq_data <- hiseq_data[,-1]
+#hiseq_data <- hiseq_data[,-ncol(hiseq_data)] # Remove last column because it has blank values
+#rownames(hiseq_data) <- hiseq_IDs
+```
+
+## Import GMS data 
+
+```{r}
+#gms_feat_data <- (read_tsv("../Data/gms_feature_ERBB2.txt"))
+#gms_feat_IDs <- as.vector(as.data.frame(gms_feat_data)[,1])
+#gms_fpkm_data <- (read_tsv("../Data/gms_fpkm_ERBB2.txt"))
+#gms_fpkm_IDs <- as.vector(as.data.frame(gms_fpkm_data)[,1])
+
+# gms_tpm_data <- as.data.frame(read_tsv("../Data/gms_tpm_ERBB2.txt"))
+# gms_tpm_IDs <- as.vector(gms_tpm_data)[,1]
+# gms_tpm_data <- as.matrix(gms_tpm_data[,-1,drop=FALSE])
+# rownames(gms_tpm_data) <- gms_tpm_IDs
+
+gms_tpm_data <- read_tsv("../Data/gms_tpm_ERBB2.txt")
+```
+
+## Load subtype data
+
+```{r}
+subtypeData <- read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt")
+colnames(subtypeData)[1] <- "Sample_ID"
+subtypeData <- select(subtypeData, Sample_ID, PAM50)
+
+rowsToKeep <- which(apply(subtypeData, 1, function(x) { !any(is.na(x))}))
+subtypeData <- subtypeData[rowsToKeep,]
+subtypeData$PAM50 <- factor(subtypeData$PAM50, levels=c("Normal", "LumA", "LumB", "Her2", "Basal"))
+```
+
+## PAM50 genes
+##  Altered, because one gene wasn't present in the available data
+## 1/2-SBSRNA4	A1BG	A1BG-AS1	A1CF	A2LD1	A2M	A2ML1	A2MP1	A4GALT
+
+```{r}
+# pam_gene_short <- c("UBE2T", "BIRC5", "NUF2", "CDC6", "CCNB1")
+# gms_genes <- c("1/2-SBSRNA4",	"A1BG",	"A1BG-AS1",	"A1CF",	"A2LD1",	"A2M",	"A2ML1",	"A2MP1",	"A4GALT")
+# 
+# gene_pam <- as.matrix(as.data.frame(subset(gene_expression_data, select=pam_gene_short)))
+# row.names(gene_pam) <- sampleIDs
+# gene_his <- as.matrix(as.data.frame(subset(hiseq_data, select=pam_gene_short)))
+# row.names(gene_his) <- hiseq_IDs
+```
+
+## Merge replicate samples
+
+```{r}
+shortenSampleIDs <- function(longSampleIDs)
+{
+  return(as.character(substr(longSampleIDs,1,12)))
+}
+
+# shortSamplePam <- shortenSampleIDs(rownames(gene_pam))
+# shortSamplePam <- unique(shortSamplePam)
+# uniqueShortSamplePam <- unique(shortSamplePam)
+# mod_gene_pam <- NULL
+# 
+# for (sampleID in uniqueShortSamplePam)
+# {
+#   numReplicates <- table(shortSamplePam)[sampleID]
+#   
+#   if (numReplicates == 1) {
+#     sampleData <- gene_pam[grep(sampleID, rownames(gene_pam)),,drop=FALSE]
+#   } else {
+#     sampleData <- gene_pam[which(shortenSampleIDs(rownames(gene_pam)) == sampleID),]
+#     sampleData <- matrix(apply(sampleData, 2, median), nrow=1)
+#     colnames(sampleData) <- colnames(gene_pam)
+#   }
+# 
+#   rownames(sampleData) <- sampleID  
+#   mod_gene_pam <- rbind(mod_gene_pam, sampleData)
+# }
+
+#print(dim(mod_gene_pam))
+```
+
+## Shorten sample names
+
+```{r}
+hiseq_data$Sample_ID <- shortenSampleIDs(hiseq_data$Sample_ID)
+gms_tpm_data$Sample_ID <- shortenSampleIDs(gms_tpm_data$Sample_ID)
+
+# shortSampleHis <- shortenSampleIDs(rownames(gene_his))
+# uniqueShortSampleHis <- unique(shortSampleHis)
+# mod_gene_his <- NULL
+# 
+# for (sampleID in uniqueShortSampleHis)
+# {
+#   numReplicates <- table(shortSampleHis)[sampleID]
+#   
+#   if (numReplicates == 1) {
+#     sampleData <- gene_his[grep(sampleID, rownames(gene_his)),,drop=FALSE]
+#   } else {
+#     sampleData <- gene_his[which(shortenSampleIDs(rownames(gene_his)) == sampleID),]
+#     sampleData <- matrix(apply(sampleData, 2, median), nrow=1)
+#     colnames(sampleData) <- colnames(gene_his)
+#   }
+# 
+#   rownames(sampleData) <- sampleID  
+#   mod_gene_his <- rbind(mod_gene_his, sampleData)
+# }
+
+#print(dim(mod_gene_his))
+```
+
+## Shorten more sample IDs
+
+```{r}
+# row.names(gene_his_alt) <- shortenSampleIDs(rownames(gene_his_alt))
+# row.names(gms_feat) <- shortenSampleIDs(rownames(gms_feat))
+# row.names(gms_fpkm) <- shortenSampleIDs(rownames(gms_fpkm))
+# row.names(gms_tpm) <- shortenSampleIDs(rownames(gms_tpm))
+```
+
+## Merge Hi-Seq and Pancan datasets
+
+```{r}
+colnames(hiseq_data)[2] <- "ERBB2_HiSeq"
+colnames(gms_tpm_data)[2] <- "ERBB2_GMS"
+
+merged_data_erbb2 <- inner_join(hiseq_data, gms_tpm_data)
+merged_data_erbb2$ERBB2_GMS <- log2(merged_data_erbb2$ERBB2_GMS + 1)
+
+merged_data_erbb2 <- inner_join(merged_data_erbb2, subtypeData)
+
+# merge_request <- function(gene_name) {
+#   
+#   temp_df <- NULL
+#   for(sample_y in shortSamplePam)
+#   {
+#     combo_zest <- NULL
+#     combo_zest <- c(as.numeric(mod_gene_his[sample_y,gene_name]), log2(1 + as.numeric(mod_gene_pam[sample_y,gene_name])))
+#     temp_df <- rbind(temp_df, combo_zest)
+#   }
+#   colnames(temp_df) <- c("HiSeq", "Pancan")
+#   
+#   return(as.data.frame(temp_df))
+# }
+```
+
+## Get DFs for genes UBE2T  BIRC5   NUF2    CDC6   CCNB1
+
+```{r}
+# ubet <- merge_request("UBE2T")
+# birc <- merge_request("BIRC5")
+# nuf2 <- merge_request("NUF2")
+# cdc6 <- merge_request("CDC6")
+# ccnb <- merge_request("CCNB1")
+
+```
+
+## Plot the data
+
+```{r}
+# c <- ggplot(sub_feat, aes(x=as.numeric(sub_feat$DataSet1), y=as.numeric(sub_feat$DataSet2), color=sub_feat$PAM50)) + scale_color_manual(name="PAM50", values = c("Normal" = "yellow", "LumA" = "black", "LumB" = "orange", "Her2" = "blue", "Basal" = "Green"))
+# c + geom_point() + xlab("HiSeq") + ylab("Feature_counts")
+# ```
+# 
+# ```{r}
+# c <- ggplot(sub_fpkm, aes(x=as.numeric(sub_fpkm$DataSet1), y=as.numeric(sub_fpkm$DataSet2), color=sub_fpkm$PAM50)) + scale_color_manual(name="PAM50", values = c("Normal" = "yellow", "LumA" = "black", "LumB" = "orange", "Her2" = "blue", "Basal" = "Green"))
+# c + geom_point() + xlab("HiSeq") + ylab("FPKM")
+# ```
+# 
+# ```{r}
+# c <- ggplot(sub_tpm, aes(x=as.numeric(sub_tpm$DataSet1), y=as.numeric(sub_tpm$DataSet2), color=sub_tpm$PAM50)) + scale_color_manual(name="PAM50", values = c("Normal" = "yellow", "LumA" = "black", "LumB" = "orange", "Her2" = "blue", "Basal" = "Green"))
+# c + geom_point() + xlab("HiSeq") + ylab("TPM")
+
+
+
+c <- ggplot(merged_data_erbb2, aes(x=ERBB2_HiSeq, y=ERBB2_GMS, color=PAM50))
+c + geom_point() + xlab("HiSeq") + ylab("TPM")
+
+ggsave(filename="../Thesis_images/HisPan_compare.png", height = 8, width = 9, units = "in")
+```
+
+

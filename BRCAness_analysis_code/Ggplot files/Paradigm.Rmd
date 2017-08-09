@@ -1,0 +1,38 @@
+---
+title: "Paradigm"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## paradigm data
+
+```{r}
+paradigmData <- read_tsv("../Data/paradigm_RNR_CNV_re.tsv")
+paradigmPID_Entity <- table(paradigmData$PID_Entity)
+paradigmGenes <- c("49_BRCA1/BARD1/DNA-directed RNA polymerase II holoenzyme", "114_BRCA2", "16_TP53", "45_PIK3CA")
+
+paradigmPlotData <- filter(paradigmData, PID_Entity %in% paradigmGenes)
+
+print(paradigmPlotData)
+
+paradigmPlotData$PID_Entity <- factor(paradigmPlotData$PID_Entity)
+cbbPalette <- c("#0072B2", "#D55E00", "#CC79A7")
+
+c <- ggplot(paradigmPlotData, aes(PID_Entity, Value))
+c + geom_jitter(color = "black", width = 0.9, height = 0.6) + xlab("") + theme(text = element_text(size=8), axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+ggsave(filename="../Thesis_images/Paradigm_thing.png", height = 8, width = 9, units = "in")
+```

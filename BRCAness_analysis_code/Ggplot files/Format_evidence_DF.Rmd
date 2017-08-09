@@ -1,0 +1,342 @@
+---
+title: ""
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+## HiSeq data importing
+
+```{r}
+hiseq_data <- (read_tsv("../Data/brca_hiseq.txt"))
+hiseq_IDs <- as.vector(as.data.frame(hiseq_data)[,1])
+```
+
+## PAM50 genes
+##  Altered, because one gene wasn't present in the available data
+
+```{r}
+pam_gene_altered <- c("UBE2T", "BIRC5", "NUF2", "CDC6", "CCNB1", "TYMS", "MYBL2", "CEP55", "MELK", "NDC80", "RRM2", "UBE2C", "CENPF", "PTTG1", "EXO1", "ANLN", "CCNE1", "CDC20", "MKI67", "KIF2C", "ACTR3B", "MYC", "EGFR", "KRT5", "PHGDH", "CDH3", "MIA", "KRT17", "FOXC1", "SFRP1", "KRT14", "ESR1", "SLC39A6", "BAG1", "MAPT", "PGR", "CXXC5", "MLPH", "BCL2", "MDM2", "NAT1", "FOXA1", "BLVRA", "MMP11", "GPR160", "FGFR4", "GRB7", "TMEM45B", "ERBB2")
+
+gene_pam <- as.matrix(as.data.frame(subset(hiseq_data, select=pam_gene_altered)))
+row.names(gene_pam) <- hiseq_IDs
+```
+
+## Remove non-tumor (01) samples
+
+```{r}
+samplesToKeep <- NULL
+
+for (sampleID in rownames(gene_pam))
+{
+  tissueType <- substring(strsplit(sampleID, "-")[[1]][4], 1, 2)
+  if (tissueType == "01")
+    samplesToKeep <- c(samplesToKeep, sampleID)
+}
+
+gene_pam <- gene_pam[samplesToKeep,]
+```
+
+## Merge replicate samples
+
+```{r}
+shortenSampleIDs <- function(longSampleIDs)
+{  return(as.character(substr(longSampleIDs,1,12)))  }
+
+shortSampleIDs <- shortenSampleIDs(rownames(gene_pam))
+uniqueShortSampleIDs <- unique(shortSampleIDs)
+mod_gene_pam <- NULL
+
+for (sampleID in uniqueShortSampleIDs)
+{
+  numReplicates <- table(shortSampleIDs)[sampleID]
+  if (numReplicates == 1) {
+    sampleData <- gene_pam[grep(sampleID, rownames(gene_pam)),,drop=FALSE]
+  } else {
+    sampleData <- gene_pam[which(shortenSampleIDs(rownames(gene_pam)) == sampleID),]
+    sampleData <- matrix(apply(sampleData, 2, median), nrow=1)
+    colnames(sampleData) <- colnames(gene_pam)
+  }
+
+  rownames(sampleData) <- sampleID  
+  mod_gene_pam <- rbind(mod_gene_pam, sampleData)
+}
+
+print(dim(mod_gene_pam))
+```
+
+## Run Rtsne on the imported data set, and select the output values for a DF
+
+```{r}
+modRowNames <- row.names(mod_gene_pam)
+log_gene_pam <- log2(mod_gene_pam + 1)
+
+set.seed(0)
+rtsne_out <- Rtsne(log_gene_pam, check_duplicates = FALSE, verbose = TRUE)
+plot(rtsne_out$Y)
+
+rtsne_y <- rtsne_out$Y
+row.names(rtsne_y) <- modRowNames
+```
+
+## This section is for getting BRCA1/2 data
+
+```{r}
+germlineData <- as.data.frame(read_tsv("../Data/germline_snv_indel.tsv"))
+somaticData <- as.data.frame(read_tsv("../Data/Somatic_ver_1.19.17.txt"))
+```
+
+## Create data matrix for samples with BRCA1/2 status
+## This will exclude samples if not found in the germline of somatic data files
+
+```{r}
+cMat <- NULL
+for (sample_s in modRowNames)
+{
+  BRCAstatus <- NULL
+  gene_one <- "BRCA1"
+  gene_two <- "BRCA2"
+  {
+    geneCounter <- 0
+    #geneSomaticB1 <- filter(somaticData, Gene==gene_one&Sample==sample_s)
+    geneGermlineB1 <- filter(germlineData, Gene==gene_one&Sample_ID==sample_s)
+    #geneSomaticB2 <- filter(somaticData, Gene==gene_two&Sample==sample_s)
+    geneGermlineB2 <- filter(germlineData, Gene==gene_two&Sample_ID==sample_s)
+    geneTest1 <- filter(somaticData, Sample==sample_s)
+    geneTest2 <- filter(germlineData, Sample_ID==sample_s)
+    geneSampleValue <- ""
+    
+    if (nrow(geneGermlineB1) > 0) 
+      {
+        if(nrow(geneGermlineB2) > 0)
+        {
+          geneSampleValue <- paste("BRCA1 and BRCA2", sep="") 
+        }
+        else  
+        {
+          geneSampleValue <- paste("BRCA1", sep="")
+        }
+      }
+    else if (nrow(geneGermlineB2) > 0)
+      {
+        geneSampleValue <- paste("BRCA2", sep="")
+      }
+    else if (nrow(geneTest1) > 0 )
+      { geneSampleValue <- paste("Other", sep="") }  
+    else 
+      { geneSampleValue <- paste("No_data", sep="") }
+   
+    if (geneSampleValue != "No_data")
+      { BRCAstatus <- c(sample_s, geneSampleValue) }
+  }
+  if (is.null(BRCAstatus) == FALSE)
+    { cMat <- rbind(cMat, BRCAstatus) }
+}
+
+colnames(cMat) <- c("Sample", "BRCA_status")
+```
+
+## data setup
+
+```{r}
+gMat <- as.data.frame(cMat)
+gMat <- unique(gMat)
+
+rtsne_citrus <- NULL
+rtsne_row_names <- row.names(rtsne_y)
+```
+
+```{r}
+#alist<-c(1:1095)
+alist<-c(1:1097)
+zMat <- NULL
+z_element <- NULL
+
+apply(gMat, 1, function(row)
+  {
+    sample_id <- NULL
+    status <- NULL
+    num_x <- 0
+    num_y <- 0
+    z_element <- NULL
+    
+    for (item in alist) 
+      {
+        if (row[1] == rtsne_row_names[item]) 
+        { 
+          num_x <- rtsne_y[item,1]
+          num_y <- rtsne_y[item,2]
+        } 
+      }  
+    sample_id <- as.character(row[1])
+    status <- as.character(row[2])
+    z_element <- c(sample_id, status, num_x, num_y)
+    zMat <<- rbind(zMat, z_element)
+    } 
+  ) 
+
+z_col_names <- c("Sample_ID", "BRCA_status", "Val_1", "Val_2")
+colnames(zMat) <- z_col_names
+
+head(zMat)
+```
+
+## Get the subtype data for subtype plotting, save it to rtsne_citrus
+
+```{r}
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+
+subtypeSamples <- sort(unique(TCGASubtypeData$Patient_ID))
+subtypeCategory <- unique(sort(TCGASubtypeData$PAM50))
+subtypeData <- filter(TCGASubtypeData, PAM50 %in% subtypeCategory)
+
+subtypeShort <- data.frame(matrix(NA, nrow = 1002, ncol = 2))
+subtypeShort[,1] <- subtypeData[,1]
+subtypeShort[,2] <- subtypeData[,10]
+
+colnames(subtypeShort) <- c("Sample_ID", "PAM50")
+
+rtsne_citrus <- inner_join(as.data.frame(zMat), as.data.frame(subtypeShort), by="Sample_ID" )
+```
+
+## Get BRCA status from previously saved file
+
+```{r}
+brcaEvidenceData <- (read_tsv("../Data/BRCA-like_evidence.txt"))
+colnames(brcaEvidenceData) <- c("Sample_ID", "BRCA_evidence")
+rtsne_evidence <- inner_join(as.data.frame(zMat), as.data.frame(brcaEvidenceData), by="Sample_ID" )
+```
+
+## Formatting for ease of methylation status plotting
+
+```{r}
+met_stat <- NULL
+new_column <- sapply(rtsne_evidence$BRCA_evidence, function(x)
+  {
+    met_stat <- ""
+    if(x == "Methylation_BRCA1") met_stat = "M1"
+    else if (x == "Methylation_BRCA2") met_stat = "M2"
+    else if (x == "Methylation_Other") met_stat = "MO"
+    else { met_stat = "N" }
+    return(met_stat)
+  })
+
+rtsne_evidence$Met <- new_column
+```
+
+## Formatting for ease of CNV deletion status plotting
+
+```{r}
+del_stat <- NULL
+new_column <- sapply(rtsne_evidence$BRCA_evidence, function(x)
+  {
+    del_stat <- ""
+    if(x == "Deletion_BRCA1") del_stat = "D1"
+    else if (x == "Deletion_BRCA2") del_stat = "D2"
+    else if (x == "Deletion_both") del_stat = "D9"
+    else { del_stat = "N" }
+    return(del_stat)
+  })
+
+rtsne_evidence$CNV <- new_column
+```
+
+## Formatting for ease of Somatic mutation plotting
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(rtsne_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA1_mutation") Som_stat = "S1"
+    else if (x == "Somatic_BRCA2_mutation") Som_stat = "S2"
+    else if (x == "Somatic_BRCA1&2_mutation") Som_stat = "S9"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+rtsne_evidence$Som <- new_column
+```
+
+## Create new columns for "BRCA1" with the type of aberration
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(rtsne_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA1_mutation") Som_stat = "S"
+    else if (x == "Germline_BRCA1_mutation") Som_stat = "G"
+    else if (x == "Deletion_BRCA1") Som_stat = "D"
+    else if (x == "Methylation_BRCA1") Som_stat = "M"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+rtsne_evidence$B1A <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(rtsne_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA1_mutation") Som_stat = "Y"
+    else if (x == "Germline_BRCA1_mutation") Som_stat = "Y"
+    else if (x == "Deletion_BRCA1") Som_stat = "Y"
+    else if (x == "Methylation_BRCA1") Som_stat = "Y"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+rtsne_evidence$AnyBRCA1 <- new_column
+```
+
+## Create new columns for "BRCA2" with the type of aberration
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(rtsne_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA2_mutation") Som_stat = "S"
+    else if (x == "Germline_BRCA2_mutation") Som_stat = "G"
+    else if (x == "Deletion_BRCA2") Som_stat = "D"
+    else if (x == "Methylation_BRCA2") Som_stat = "M"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+rtsne_evidence$B2A <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(rtsne_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA2_mutation") Som_stat = "Y"
+    else if (x == "Germline_BRCA2_mutation") Som_stat = "Y"
+    else if (x == "Deletion_BRCA2") Som_stat = "Y"
+    else if (x == "Methylation_BRCA2") Som_stat = "Y"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+rtsne_evidence$AnyBRCA2 <- new_column
+```
+
+## Save the rtsne_evidence DF to a file for use in later analyses.
+
+```{r}
+write.table(rtsne_evidence, file="rtsne_evidence_DF.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+```

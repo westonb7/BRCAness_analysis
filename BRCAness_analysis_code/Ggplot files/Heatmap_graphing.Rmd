@@ -1,0 +1,280 @@
+---
+title: "Heatmap_graphing"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(superheat)
+library(gridExtra)
+```
+
+## Import the data
+
+```{r}
+heat_data <- read_tsv("../Data/combined_p_values.txt")
+```
+
+## Depreciated code, don't use
+
+```{r}
+# heat_data_matrix <- NULL
+# heat_data_matrix = matrix(c(
+#   heat_data[16,1], heat_data[19,1], heat_data[10,1], heat_data[22,1], heat_data[25,1], heat_data[13,1], heat_data[28,1], 0, heat_data[32,1], heat_data[35,1], 0, heat_data[40,1], heat_data[43,1], # methylation
+#   heat_data[17,1], heat_data[20,1], heat_data[11,1], heat_data[23,1], heat_data[26,1], heat_data[14,1], 0, heat_data[30,1], heat_data[33,1], heat_data[36,1], heat_data[38,1], heat_data[41,1], heat_data[44,1],  # deletion
+#   heat_data[18,1], heat_data[21,1], heat_data[12,1], heat_data[24,1], heat_data[27,1], heat_data[15,1], heat_data[29,1], heat_data[31,1], heat_data[34,1], heat_data[37,1], heat_data[39,1], heat_data[42,1], heat_data[45,1],   # somatic
+#   heat_data[4,1], heat_data[5,1], 0, heat_data[7,1], heat_data[8,1], 0, 0, 0, 0, 0, 0, 0, 0), #All
+#   
+#   nrow=13,
+#   ncol=4
+# )
+```
+
+## Format data (matrix must be only numerical)
+
+```{r}
+heat_data_matrix <- NULL
+heat_data_matrix = matrix(
+  c(
+  as.numeric(heat_data[20,1]), as.numeric(heat_data[22,1]), as.numeric(heat_data[24,1]),  # gene 1
+  as.numeric(heat_data[21,1]), as.numeric(heat_data[23,1]), as.numeric(heat_data[25,1]),  # gene 2
+  as.numeric(heat_data[26,1]), as.numeric(heat_data[27,1]), as.numeric(heat_data[28,1]),  # gene 1&2
+  0, as.numeric(heat_data[2,1]), as.numeric(heat_data[3,1]),                              # Basal 1
+  as.numeric(heat_data[1,1]), 0, as.numeric(heat_data[4,1]),                              # Basal 2
+  1, 1, as.numeric(heat_data[7,1]),                                                       # Basal 1&2
+  as.numeric(heat_data[8,1]), as.numeric(heat_data[10,1]), as.numeric(heat_data[12,1]),   # Non-basal 1
+  as.numeric(heat_data[9,1]), as.numeric(heat_data[11,1]), as.numeric(heat_data[13,1]),   # Non-basal 2
+  as.numeric(heat_data[14,1]), as.numeric(heat_data[15,1]), as.numeric(heat_data[16,1]),  # Non-basal 1&2
+  as.numeric(heat_data[43,1]), as.numeric(heat_data[45,1]), as.numeric(heat_data[47,1]),  # Sig 1
+  as.numeric(heat_data[44,1]), as.numeric(heat_data[46,1]), as.numeric(heat_data[48,1]),  # Sig 2
+  as.numeric(heat_data[49,1]), as.numeric(heat_data[50,1]), as.numeric(heat_data[51,1]),  # Sig 1&2
+  as.numeric(heat_data[29,1]), 0, as.numeric(heat_data[30,1]),                            # Sig2 1
+  as.numeric(heat_data[34,1]), as.numeric(heat_data[36,1]), as.numeric(heat_data[38,1]),  # Sig3 1
+  as.numeric(heat_data[35,1]), as.numeric(heat_data[37,1]), as.numeric(heat_data[39,1]),  # Sig3 2
+  as.numeric(heat_data[31,1]), as.numeric(heat_data[32,1]), as.numeric(heat_data[33,1]) ), # Sig3 1&2
+  
+  nrow=3,
+  ncol=16, 
+  byrow=FALSE
+)
+
+row.names(heat_data_matrix) <- c("Deletion", "Methylation", "Somatic")
+colnames(heat_data_matrix) <- c("Gene BRCA1", "Gene BRCA2", "Gene BRCA1&2", "Basal BRCA1", "Basal BRCA2", "Basal BRCA1&2", "Non-b BRCA1", "Non-b BRCA2", "Non-b BRCA1&2", "Sig BRCA1", "Sig BRCA2", "Sig BRCA1&2",  "Sig2 BRCA1", "Sig3 BRCA1", "Sig3 BRCA2", "Sig3 BRCA1&2")
+```
+
+```{r}
+gx_matrix <- NULL
+gx_matrix = matrix(
+  c(
+  as.numeric(heat_data[20,1]), as.numeric(heat_data[22,1]), as.numeric(heat_data[24,1]),  # gene 1
+  as.numeric(heat_data[21,1]), as.numeric(heat_data[23,1]), as.numeric(heat_data[25,1]),  # gene 2
+  as.numeric(heat_data[26,1]), as.numeric(heat_data[27,1]), as.numeric(heat_data[28,1]) ),  # gene 1&2
+ 
+  nrow=3,
+  ncol=3, 
+  byrow=FALSE
+)
+
+row.names(gx_matrix) <- c("Deletion", "Methylation", "Somatic")
+colnames(gx_matrix) <- c("Gene BRCA1", "Gene BRCA2", "Gene BRCA1&2")
+gx_matrix <- t(gx_matrix)
+```
+
+```{r}
+sig_matrix <- NULL
+sig_matrix = matrix(
+  c(
+  as.numeric(heat_data[43,1]), as.numeric(heat_data[45,1]), as.numeric(heat_data[47,1]),  # Sig 1
+  as.numeric(heat_data[44,1]), as.numeric(heat_data[46,1]), as.numeric(heat_data[48,1]),  # Sig 2
+  as.numeric(heat_data[49,1]), as.numeric(heat_data[50,1]), as.numeric(heat_data[51,1]) ),  # Sig 1&2
+ 
+  nrow=3,
+  ncol=3, 
+  byrow=FALSE
+)
+
+row.names(sig_matrix) <- c("Deletion", "Methylation", "Somatic")
+colnames(sig_matrix) <- c("Sig BRCA1", "Sig BRCA2", "Sig BRCA1&2")
+sig_matrix <- t(sig_matrix)
+```
+
+```{r}
+sigt_matrix <- NULL
+sigt_matrix = matrix(
+  c(
+  as.numeric(heat_data[43,1]), as.numeric(heat_data[45,1]), as.numeric(heat_data[47,1]),  # Sig 1
+  as.numeric(heat_data[44,1]), as.numeric(heat_data[46,1]), as.numeric(heat_data[48,1]),  # Sig 2
+  as.numeric(heat_data[49,1]), as.numeric(heat_data[50,1]), as.numeric(heat_data[51,1]),
+  0, 0.5, 1) ,  # Sig 1&2
+ 
+  nrow=3,
+  ncol=4, 
+  byrow=FALSE
+)
+
+row.names(sigt_matrix) <- c("Deletion", "Methylation", "Somatic")
+colnames(sigt_matrix) <- c("Sig BRCA1", "Sig BRCA2", "Sig BRCA1&2", "Test")
+sigt_matrix <- t(sigt_matrix)
+```
+
+```{r}
+basal_matrix <- NULL
+basal_matrix = matrix(
+  c(
+  0, as.numeric(heat_data[2,1]), as.numeric(heat_data[3,1]),                              # Basal 1
+  as.numeric(heat_data[1,1]), 0, as.numeric(heat_data[4,1]),                              # Basal 2
+  1, 1, as.numeric(heat_data[7,1]),                                                       # Basal 1&2
+  as.numeric(heat_data[8,1]), as.numeric(heat_data[10,1]), as.numeric(heat_data[12,1]),   # Non-basal 1
+  as.numeric(heat_data[9,1]), as.numeric(heat_data[11,1]), as.numeric(heat_data[13,1]),   # Non-basal 2
+  as.numeric(heat_data[14,1]), as.numeric(heat_data[15,1]), as.numeric(heat_data[16,1]) ),  # Non-basal 1&2
+
+  nrow=3,
+  ncol=6, 
+  byrow=FALSE
+)
+
+row.names(basal_matrix) <- c("Deletion", "Methylation", "Somatic")
+colnames(basal_matrix) <- c("Basal BRCA1", "Basal BRCA2", "Basal BRCA1&2", "Non-b BRCA1", "Non-b BRCA2", "Non-b BRCA1&2")
+basal_matrix <- t(basal_matrix)
+```
+
+```{r}
+s23_matrix <- NULL
+s23_matrix = matrix(
+  c(
+  as.numeric(heat_data[29,1]), 0, as.numeric(heat_data[30,1]),                            # Sig2 1
+  as.numeric(heat_data[34,1]), as.numeric(heat_data[36,1]), as.numeric(heat_data[38,1]),  # Sig3 1
+  as.numeric(heat_data[35,1]), as.numeric(heat_data[37,1]), as.numeric(heat_data[39,1]),  # Sig3 2
+  as.numeric(heat_data[31,1]), as.numeric(heat_data[32,1]), as.numeric(heat_data[33,1]),
+  0, 0.5, 1), # Sig3 1&2
+  
+  nrow=3,
+  ncol=5, 
+  byrow=FALSE
+)
+
+row.names(s23_matrix) <- c("Deletion", "Methylation", "Somatic")
+colnames(s23_matrix) <- c("Sig2 BRCA1", "Sig3 BRCA1", "Sig3 BRCA2", "Sig3 BRCA1&2", "Test")
+s23_matrix <- t(s23_matrix)
+```
+
+```{r}
+pal_matrix <- NULL
+pal_matrix = matrix(
+  c(
+  as.numeric(heat_data[58,1]), as.numeric(heat_data[59,1]), as.numeric(heat_data[60,1]),  # gene palb 1&2, 1, 2
+  as.numeric(heat_data[61,1]), as.numeric(heat_data[62,1]), as.numeric(heat_data[63,1]),  # gene pal+ 1&2, 1, 2
+  as.numeric(heat_data[52,1]), as.numeric(heat_data[53,1]), as.numeric(heat_data[54,1]),  # sig palb 1&2, 1, 2
+  as.numeric(heat_data[55,1]), as.numeric(heat_data[56,1]), as.numeric(heat_data[57,1]) ),  # sig pal+ 1&2, 1, 2
+
+  nrow=3,
+  ncol=4, 
+  byrow=FALSE
+)
+
+row.names(pal_matrix) <- c("BRCA1&2", "BRCA1", "BRCA2")
+colnames(pal_matrix) <- c( "Gene PALB2", "Gene PAL+", "Sig PALB2", "Sig PAL+")
+```
+
+```{r}
+germ_matrix <- NULL
+germ_matrix = matrix(
+  c(
+  as.numeric(heat_data[17,1]), as.numeric(heat_data[19,1]), as.numeric(heat_data[18,1]),   # Gene 1, 2, 1&2
+  as.numeric(heat_data[40,1]), as.numeric(heat_data[42,1]), as.numeric(heat_data[41,1]) ), # Sig 1, 2, 1&2
+  
+  nrow=3,
+  ncol=2, 
+  byrow=FALSE
+)
+
+row.names(germ_matrix) <- c("BRCA1", "BRCA2", "BRCA1&2")
+colnames(germ_matrix) <- c("Gene expr", "Sig")
+
+```
+
+## Testing
+
+```{r}
+superheat(mtcars, scale = T, pretty.order.rows = TRUE, pretty.order.cols = TRUE, yr = mtcars$mpg, yr.axis.name = "Miles per gallon", yt = cor(mtcars)[, "mpg"], yt.plot.type = "bar", yt.axis.name = "Correlation with mpg", left.label.size = 0.4)
+```
+
+## Plotting the majority of the data
+
+```{r}
+#superheat(heat_data_matrix, heat.pal = c("#000000", "#008080", "#99e6ff", "white", "white", "#FFFF33", "#e53e00", "#696969"), heat.pal.values = c(0, 0.000000001, 0.10, 0.47, 0.53, 0.90, 0.9999999999, 1), left.label.size = 0.2, bottom.label.size = 0.2, bottom.label.text.size=3)
+
+superheat(heat_data_matrix, heat.pal = c("#000000", "#e53e00", "#FFFF33", "white", "white", "#99e6ff",  "#008080", "#696969"), heat.pal.values = c(0, 0.000000001, 0.10, 0.49, 0.51, 0.90, 0.9999999999, 1), left.label.size = 0.2, bottom.label.size = 0.2, bottom.label.text.size=3)
+
+## Note: ggsave() won't work nicely with superheat
+#superheat(heat_data_matrix, scale = T, pretty.order.rows = TRUE, pretty.order.cols = TRUE) 
+#, yr = heat_data$P_value, yt = cor(heat_data)[, "P-_value"], left.label.size = 0.45)
+```
+
+```{r}
+heat_transposed <- t(heat_data_matrix)
+
+superheat(heat_transposed, heat.pal = c("#000000", "#e53e00", "#FFFF33", "white", "white", "#99e6ff", "#008080", "#696969"), heat.pal.values = c(0, 0.000000001, 0.10, 0.47, 0.53, 0.90, 0.9999999999, 1), left.label.size = 0.4, bottom.label.size = 0.06, left.label.text.size=4)
+
+```
+
+```{r}
+png(filename="../Thesis_images/Heatmap_germ_1_2.png", width=6, height=5, units="in", res=300)
+superheat(germ_matrix, heat.pal = c("#e53e00", "#FFFF33", "white", "white", "#99e6ff", "#008080"), heat.pal.values = c(0, 0.10, 0.47, 0.53, 0.90, 1), left.label.size = 0.2,  left.label.text.size=4)
+dev.off()
+```
+
+```{r}
+png(filename="../Thesis_images/Heatmap_PALB2+.png", width=7, height=5, units="in", res=300)
+superheat(pal_matrix, heat.pal = c("#e53e00", "#FFFF33", "white", "white", "#99e6ff", "#008080"), heat.pal.values = c(0, 0.10, 0.47, 0.53, 0.90, 1), left.label.size = 0.2, bottom.label.size = 0.2, left.label.text.size=4)
+dev.off()
+```
+
+```{r}
+png(filename="../Thesis_images/Heatmap_gx.png", width=8, height=5, units="in", res=300)
+superheat(gx_matrix, heat.pal = c("#e53e00", "#FFFF33", "white", "white", "#99e6ff", "#008080"), heat.pal.values = c(0, 0.10, 0.47, 0.53, 0.90, 1), left.label.size = 0.2, bottom.label.size = 0.2, left.label.text.size=4)
+dev.off()
+```
+
+```{r}
+png(filename="../Thesis_images/Heatmap_sig_fix.png", width=7, height=5, units="in", res=300)
+superheat(sigt_matrix, scale=FALSE, heat.pal = c("#e53e00", "#FFFF33", "white", "white", "#99e6ff", "#008080"), heat.pal.values = c(0, 0.10, 0.47, 0.53, 0.90, 1), left.label.size = 0.2, bottom.label.size = 0.2, left.label.text.size=4)
+dev.off()
+```
+
+```{r}
+png(filename="../Thesis_images/Heatmap_basal.png", width=8, height=7, units="in", res=300)
+superheat(basal_matrix, heat.pal = c("#e53e00", "#FFFF33", "white", "white", "#99e6ff", "#008080"), heat.pal.values = c(0, 0.10, 0.47, 0.53, 0.90, 1), left.label.size = 0.2, bottom.label.size = 0.2, left.label.text.size=4)
+dev.off()
+```
+
+```{r}
+png(filename="../Thesis_images/Heatmap_s23.png", width=8, height=7, units="in", res=300)
+superheat(s23_matrix, heat.pal = c("#000000", "#e53e00", "#FFFF33", "white", "white", "#99e6ff", "#008080"), heat.pal.values = c(0, 0.000000001, 0.10, 0.47, 0.53, 0.90, 1), left.label.size = 0.2, bottom.label.size = 0.2, left.label.text.size=4)
+dev.off()
+```
+
+```{r}
+png("../Thesis_images/heat_data_table.png", height=1400, width=550)
+p<-tableGrob(heat_data)
+grid.arrange(p)
+dev.off()
+```
+
+```{r}
+mut_sig_data <- read_tsv("../Data/aggregate_weights_3.txt")
+mut_sig_data <- mut_sig_data[1:10,1:10]
+png("../Thesis_images/sig_data_table.png", height=250, width=900)
+p<-tableGrob(mut_sig_data)
+grid.arrange(p)
+dev.off()
+```

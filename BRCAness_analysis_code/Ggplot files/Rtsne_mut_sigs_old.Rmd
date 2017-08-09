@@ -1,0 +1,239 @@
+---
+title: "Rtsne_mut_sigs"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+```
+
+## Import the necessary datasets into a dataframe
+
+```{r}
+
+mut_sigs_origin <- (read_tsv("../Data/aggregate_weights.txt"))
+sampleIDs <- as.vector(as.data.frame(mut_sigs_origin)[,1])
+
+```
+
+## Format the data (be carefull not to run this block more than once, as it will cut off data rows)
+
+```{r}
+
+mut_sigs <- mut_sigs_origin[,-1]
+mut_sigs <- as.matrix(mut_sigs)
+mut_sig_rows <- head(sampleIDs,-27)
+mut_sig_rows <- substr(mut_sig_rows, 1, nchar(mut_sig_rows)-3)
+mut_sigs <- head(mut_sigs, -27)
+
+# mut_sig_rows <- unique(mut_sig_rows)
+# mut_sigs <- unique(mut_sigs)
+
+row.names(mut_sigs) <- mut_sig_rows
+mut_sig_cols <- colnames(mut_sigs)
+
+
+mut_sigs_2 <- unique(mut_sigs)
+```
+
+## Remove the duplicate samples (problematic later)
+
+```{r}
+
+found_samples <- unique(mut_sig_rows)
+test_lemon <- seq(1, 981, by=1)
+
+other_df <- NULL
+
+sketchy_rows <- NULL
+
+for (i in test_lemon)
+{
+  if (mut_sig_rows[i] %in% other_df)
+  {
+    sketchy_rows <- c(sketchy_rows, i)
+  }
+  else
+  {
+    other_df <- c(other_df, mut_sig_rows[i]) 
+  }
+}
+
+mut_sigs_removed <- mut_sigs[-sketchy_rows, ]
+
+```
+
+## Run Rtsne on the imported data set, and plot it
+
+```{r}
+rtsne_out <- Rtsne(mut_sigs, check_duplicates = FALSE, verbose = TRUE)
+plot(rtsne_out$Y)
+
+```
+
+## Reformat mut_sigs data into tidy format and save to file. (unrelated to Rtsne)
+
+```{r}
+
+mut_sigs_tidy <- mut_sigs
+
+## to do:
+## save rownames to DF
+## iterate through each element of rowname_DF,
+## write new row of rowname_DF[i], signature, weight
+## save to file
+
+
+
+```
+
+## This section is for getting BRCA1/2 data
+
+```{r}
+germlineData <- as.data.frame(read_tsv("../Data/germline_snv_indel.tsv"))
+somaticData <- as.data.frame(read_tsv("../Data/BRCA_parsed_hg38.txt"))
+```
+
+## Germline - Build matrices
+
+```{r}
+uniqueGermlineGenes <- sort(unique(germlineData$Gene))
+uniqueSomaticGenes <- sort(unique(somaticData$Gene))
+uniqueSamples <- sort(unique(germlineData$Sample_ID))
+uniqueSomaticSamples <- sort(unique(somaticData$Sample)) ##Added
+
+uniqueTotalSamples <- c(uniqueSamples, uniqueSomaticSamples) ##A
+uniqueTotalSamples <- sort(unique(uniqueTotalSamples$Sample_ID)) ##A
+
+BRCAGenes <- c("BRCA1", "BRCA2")
+
+```
+
+## Combined data - build matricies
+
+```{r}
+
+combinedSamples <- uniqueSomaticSamples
+uniqueCombinedSamples <- unique(combinedSamples)
+
+geneCounter <- 0
+```
+
+## Create data matrix for combined data
+
+```{r}
+
+cMat <- NULL
+for (sample in mut_sig_rows)
+{
+  BRCAstatus <- NULL
+
+  gene_one <- "BRCA1"
+  gene_two <- "BRCA2"
+  
+  ##for (gene in BRCAGenes)
+  {
+    
+    geneCounter <- 0
+    geneSomaticB1 <- filter(somaticData, Gene==gene_one&Sample==sample)
+    geneGermlineB1 <- filter(germlineData, Gene==gene_one&Sample_ID==sample)
+    geneSomaticB2 <- filter(somaticData, Gene==gene_two&Sample==sample)
+    geneGermlineB2 <- filter(germlineData, Gene==gene_two&Sample_ID==sample)
+    geneSampleValue <- ""
+  
+    if (nrow(geneSomaticB1) > 0 || nrow(geneGermlineB1) > 0) 
+      {
+        ##geneSampleValue <- paste("BRCA1", sep="") 
+        if(nrow(geneSomaticB2) > 0 || nrow(geneGermlineB2) > 0)
+        {
+          geneSampleValue <- paste("BRCA1 and BRCA2", sep="") 
+          print("check 1")
+        }
+        else  
+        {
+          geneSampleValue <- paste("BRCA1", sep="")
+          print("check 2")
+        }
+      }
+    else if (nrow(geneSomaticB2) > 0 || nrow(geneGermlineB2) > 0)
+      {
+        geneSampleValue <- paste("BRCA2", sep="")
+        print("check 3")
+      }
+    else { geneSampleValue <- paste("Other", sep="") }  
+    
+    BRCAstatus <- c(sample, geneSampleValue)
+  }
+  cMat <- rbind(cMat, BRCAstatus)
+}
+name_holder <- c("Sample", "BRCA_status")
+
+##rownames(cMat) <- BRCAGenes
+colnames(cMat) <- name_holder
+
+```
+
+## plot the data using BRCA labels
+
+```{r}
+gMat <- as.data.frame(cMat)
+
+#rtsne_out <- Rtsne(mut_sigs, check_duplicates = FALSE, verbose = TRUE)
+#plot(rtsne_out$Y, col=gMat$BRCA_status, pch=20)
+
+```
+
+## format the data in a way that can be used with ggplot2
+
+```{r}
+
+rtsne_gg <- rtsne_out$Y
+
+gene_counter <- 0
+rtsne_citrus <- NULL
+alist<-c(1:982)
+
+for (item in alist)
+{
+  gene_counter <- gene_counter + 1
+  if (gene_counter <= 981)
+  {
+    temp_container <- NULL
+    temp_container <- c(rtsne_gg[gene_counter,], gMat[gene_counter,]) 
+    rtsne_citrus <- rbind(rtsne_citrus, temp_container)
+  }
+  x_lemon = c("X", "Y", "Sample", "BRCA_status")
+  colnames(rtsne_citrus) <- x_lemon
+}
+
+#rtsne_gg <- as.data.frame(rtsne_gg)
+#rownames(rtsne_gg) <- mut_sig_rows
+
+```
+
+## Plotting the data with ggplot2
+
+```{r}
+
+rtsne_citrine <- as.data.frame(rtsne_citrus)
+rownames(rtsne_citrine) <- gMat$Sample
+
+## rtsne_citrine <- data.matrix(rtsne_citrus)
+
+c <- ggplot(rtsne_citrine, aes(x="X",y="Y", color=BRCA_status))
+c + geom_point()
+
+```
+
+
+
+

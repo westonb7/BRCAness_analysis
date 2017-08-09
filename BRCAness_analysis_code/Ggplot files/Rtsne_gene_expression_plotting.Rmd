@@ -1,0 +1,321 @@
+---
+title: "Rtsne_gene_expression_plotting"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(plyr)
+```
+
+## Define height and width for images to be saved
+
+```{r}
+img_h <- 6
+img_w <- 6.5
+```
+
+## Import the necessary datasets 
+
+```{r}
+rtsne_more <- read_tsv("../Data/rtsne_evidence_more_germ.txt")
+rtsne_more_mut <- read_tsv("../Data/rtsne_mut_more_germ.txt")
+```
+
+## Adjusting data sets to have another column
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(rtsne_more$BRCA_evidence, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "Deletion_BRCA1") { Som_stat <- "BRCAness" }
+ else if(x == "Deletion_BRCA2") { Som_stat <- "BRCAness" }
+ else if(x == "Germline_BRCA1_mutation") { Som_stat <- "BRCA1" }
+ else if(x == "Germline_BRCA2_mutation") { Som_stat <- "BRCA2" }
+ else if(x == "Methylation_BRCA1") { Som_stat <- "BRCAness" }
+ else if(x == "Methylation_BRCA2") { Som_stat <- "BRCAness" }
+ else if(x == "None") { Som_stat <- "Other" }
+ else if(x == "Somatic_BRCA1_mutation") { Som_stat <- "BRCAness" }
+ else if(x == "Somatic_BRCA2_mutation") { Som_stat <- "BRCAness" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+rtsne_more$chart_label <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(rtsne_more$Other_g_mutation, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "None" }
+ else if(x == "ATM") { Som_stat <- "ATM" }
+ else if(x == "CHEK2") { Som_stat <- "CHEK2" }
+ else if(x == "RAD51B") { Som_stat <- "RAD51B" }
+ else if(x == "RAD51C") { Som_stat <- "RAD51C" }
+ else if(x == "PALB2") { Som_stat <- "PALB2" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+rtsne_more$Short_germ_3 <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(rtsne_more_mut$BRCA_evidence, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "Deletion_BRCA1") { Som_stat <- "BRCAness" }
+ else if(x == "Deletion_BRCA2") { Som_stat <- "BRCAness" }
+ else if(x == "Germline_BRCA1_mutation") { Som_stat <- "BRCA1" }
+ else if(x == "Germline_BRCA2_mutation") { Som_stat <- "BRCA2" }
+ else if(x == "Methylation_BRCA1") { Som_stat <- "BRCAness" }
+ else if(x == "Methylation_BRCA2") { Som_stat <- "BRCAness" }
+ else if(x == "None") { Som_stat <- "Other" }
+ else if(x == "Somatic_BRCA1_mutation") { Som_stat <- "BRCAness" }
+ else if(x == "Somatic_BRCA2_mutation") { Som_stat <- "BRCAness" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+rtsne_more_mut$chart_label <- new_column
+```
+
+## More formatting
+
+```{r}
+Som_stat <- NULL
+colFunc <- function(x,y)
+{
+  Som_stat <- ""
+  if (is.na(x)) { Som_stat <- "Other" }
+  else if(x == "Other" && y == "ATM") { Som_stat <- "ATM" }
+  else if(x == "Other" && y == "CHEK2") { Som_stat <- "CHEK2" }
+  else if(x == "Other" && y == "PALB2") { Som_stat <- "PALB2" }
+  else if(x == "Other" && y == "RAD51B") { Som_stat <- "RAD51B" }
+  else if(x == "Other" && y == "RAD51C") { Som_stat <- "RAD51C" }
+  else if(x == "Other" && y == "Other") { Som_stat <- "Other_g_m" }
+  else if(x == "Other" && y == "None") { Som_stat <- "Other" }
+  else if(x == "Other" && y != "None") { Som_stat <- "Other" }
+  else if(x == "Other") { Som_stat <- "Other" }
+  else if(x == "BRCA1") { Som_stat <- "BRCA1" }
+  else if(x == "BRCA2") { Som_stat <- "BRCA2" }
+  else if(x == "BRCAness") { Som_stat <- "BRCAness" }
+  else { Som_stat <- "Other" }
+  return(Som_stat)
+}
+
+new_column <- mapply(colFunc, rtsne_more$chart_label, rtsne_more$Short_germ_3)
+rtsne_more$chart_lab_2 <- new_column
+
+new_column <- mapply(colFunc, rtsne_more_mut$chart_label, rtsne_more_mut$Short_germ_2)
+rtsne_more_mut$chart_lab_2 <- new_column
+```
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(rtsne_more$chart_lab_2, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "ATM") { Som_stat <- "ATM" }
+ else if(x == "CHEK2") { Som_stat <- "CHEK2" }
+ else if(x == "PALB2") { Som_stat <- "PALB2" }
+ else if(x == "RAD51B") { Som_stat <- "RAD51B" }
+ else if(x == "RAD51C") { Som_stat <- "RAD51C" }
+ else if(x == "Other_g_m") { Som_stat <- "Other_g_m" }
+ else if(x == "Other") { Som_stat <- "Other" }
+ else if(x == "BRCA1") { Som_stat <- "Other" }
+ else if(x == "BRCA2") { Som_stat <- "Other" }
+ else if(x == "BRCAness") { Som_stat <- "Other" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+rtsne_more$chart_lab_3 <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(rtsne_more_mut$chart_lab_2, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "ATM") { Som_stat <- "ATM" }
+ else if(x == "CHEK2") { Som_stat <- "CHEK2" }
+ else if(x == "PALB2") { Som_stat <- "PALB2" }
+ else if(x == "RAD51B") { Som_stat <- "RAD51B" }
+ else if(x == "RAD51C") { Som_stat <- "RAD51C" }
+ else if(x == "Other_g_m") { Som_stat <- "Other_g_m" }
+ else if(x == "Other") { Som_stat <- "Other" }
+ else if(x == "BRCA1") { Som_stat <- "Other" }
+ else if(x == "BRCA2") { Som_stat <- "Other" }
+ else if(x == "BRCAness") { Som_stat <- "Other" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+rtsne_more_mut$chart_lab_3 <- new_column
+```
+
+## Plot and save Rtsne_gene_scatterplot.pdf
+
+```{r}
+colorMap <- c("BRCA1"="firebrick", "BRCA2"="firebrick1", "BRCAness"="darkslategray2",  "Other"="gray")
+labels <- c("Germline BRCA1", "Germline BRCA2", "BRCAness", "Other")
+labels_2 <- c("BRCA1", "BRCA2", "BRCAness", "Other")
+sizeMap <- c("BRCA1"=4, "BRCA2"=4, "BRCAness"=4,  "Other"=2)
+shapeMap <- c( "BRCA1"=16, "BRCA2"=17, "BRCAness"=18, "Other"=1)
+levelOrder <- c("Other", "BRCAness", "BRCA2", "BRCA1")
+
+plotData <- select(rtsne_more_mut, chart_lab_2, Val_1, Val_2)
+colnames(plotData)[1] <- "Category"
+plotData$Category <- factor(plotData$Category, levels=levelOrder)
+
+c <- ggplot(plotData %>% arrange(Category),
+       aes(x=Val_1,
+           y=Val_2,
+           size=Category,
+           color=Category,
+           shape=Category,
+           stroke=1.1)
+     ) +
+     scale_color_manual(name="BRCA mutation", breaks=labels_2, labels=labels_2, values = colorMap) +
+     theme_bw() +
+     theme(text = element_text(size=12)) +
+     scale_size_manual(values=sizeMap) +
+     scale_shape_manual(name="BRCA mutation", breaks=labels_2, labels=labels_2, values = shapeMap) +
+     guides(size=FALSE, color=FALSE) +
+     geom_point() +
+     xlab("Dimension 1") +
+     ylab("Dimension 2") +
+     guides(shape = guide_legend(override.aes = list(size=4)), color = guide_legend(override.aes = list(size=4)))
+
+plot(c)
+
+ggsave(filename="../Rtsne_mut_scatterplot.pdf", height = img_h, width = img_w, units = "in", dpi=300)
+```
+
+## Plot and save Rtsne_mut_scatterplot.pdf
+
+```{r}
+colorMap <- c("BRCA1"="firebrick", "BRCA2"="firebrick1", "BRCAness"="darkslategray2",  "Other"="gray")
+labels <- c("Germline BRCA1", "Germline BRCA2", "BRCAness", "Other")
+labels_2 <- c("BRCA1", "BRCA2", "BRCAness", "Other")
+sizeMap <- c("BRCA1"=4, "BRCA2"=4, "BRCAness"=4,  "Other"=2)
+shapeMap <- c( "BRCA1"=16, "BRCA2"=17, "BRCAness"=18, "Other"=1)
+levelOrder <- c("Other", "BRCAness", "BRCA2", "BRCA1")
+
+plotData <- select(rtsne_more, chart_lab_2, Val_1, Val_2)
+colnames(plotData)[1] <- "Category"
+plotData$Category <- factor(plotData$Category, levels=levelOrder)
+
+c <- ggplot(plotData %>% arrange(Category),
+       aes(x=Val_1,
+           y=Val_2,
+           size=Category,
+           color=Category,
+           shape=Category,
+           stroke=1.1)
+     ) +
+     scale_color_manual(name="BRCA mutation", breaks=labels_2, values = colorMap) +
+     theme_bw() +
+     theme(text = element_text(size=12)) +
+     scale_size_manual(values=sizeMap) +
+     scale_shape_manual(name="BRCA mutation", breaks=labels_2, values = shapeMap) +
+     guides(size=FALSE, color=FALSE) +
+     geom_point() +
+     xlab("Dimension 1") +
+     ylab("Dimension 2") +
+     guides(shape = guide_legend(override.aes = list(size=4)), color = guide_legend(override.aes = list(size=4)))
+
+plot(c)
+
+ggsave(filename="../Rtsne_gene_scatterplot.pdf", height = img_h, width = img_w, units = "in", dpi=300)
+```
+
+## Plot and save Rtsne_gen_test_07.pdf
+
+```{r}
+colorMap <- c("ATM"="black", "BRCA1"="#808080", "BRCA2"="#808080", "BRCAness"="#808080", "CHEK2"="black", "Other"="#DCDCDC", "Other_g_m"="black", "PALB2"="black", "RAD51B"="black", "RAD51C"="black")
+labels <- c("ATM", "Germline BRCA1", "Germline BRCA2", "BRCAness", "CHEK2", "Other", "Other germline mutation", "PALB2", "RAD51B", "RAD51C")
+labels_2 <- c("CHEK2", "ATM", "RAD51C", "PALB2", "RAD51B")
+sizeMap <- c("ATM"=4, "BRCA1"=2, "BRCA2"=2, "BRCAness"=2, "CHEK2"=4, "Other"=2, "Other_g_m"=2, "PALB2"=4, "RAD51B"=4, "RAD51C"=4)
+shapeMap <- c("ATM"=3, "BRCA1"=0, "BRCA2"=0, "BRCAness"=0, "CHEK2"=4, "Other"=1, "Other_g_m"=7, "PALB2"=9, "RAD51B"=6, "RAD51C"=8)
+levelOrder <- c("Other", "BRCAness", "BRCA2", "BRCA1", "CHEK2", "ATM", "RAD51C", "PALB2", "RAD51B")
+
+plotData <- select(rtsne_more, chart_lab_2, Val_1, Val_2)
+colnames(plotData)[1] <- "Category"
+plotData$Category <- factor(plotData$Category, levels=levelOrder)
+
+c <- ggplot(plotData %>% arrange(Category),
+       aes(x=Val_1,
+           y=Val_2,
+           size=Category,
+           color=Category,
+           shape=Category,
+           stroke=1.1)
+     ) +
+     scale_color_manual(name="Germline mutation", values = colorMap) +
+     theme_bw() +
+     theme(text = element_text(size=12)) +
+     scale_size_manual(values=sizeMap) +
+     scale_shape_manual(name="Germline mutation", breaks=labels_2, values = shapeMap) +
+     guides(size=FALSE, color=FALSE) +
+     geom_point() +
+     xlab("Dimension 1") +
+     ylab("Dimension 2") +
+     guides(shape = guide_legend(override.aes = list(size=4)))
+
+plot(c)
+
+ggsave(filename="../Rtsne_gen_test_08.pdf", height = img_h, width = img_w, units = "in", dpi=300)
+```
+
+## Plot and save Rtsne_mut_test_07.pdf
+
+```{r}
+colorMap <- c("ATM"="black", "BRCA1"="#808080", "BRCA2"="#808080", "BRCAness"="#808080", "CHEK2"="black", "Other"="#DCDCDC", "Other_g_m"="black", "PALB2"="black", "RAD51B"="black", "RAD51C"="black")
+labels <- c("ATM", "Germline BRCA1", "Germline BRCA2", "BRCAness", "CHEK2", "Other", "Other germline mutation", "PALB2", "RAD51B", "RAD51C")
+labels_2 <- c("CHEK2", "ATM", "RAD51C", "PALB2", "RAD51B")
+sizeMap <- c("ATM"=4, "BRCA1"=2, "BRCA2"=2, "BRCAness"=2, "CHEK2"=4, "Other"=2, "Other_g_m"=2, "PALB2"=4, "RAD51B"=4, "RAD51C"=4)
+shapeMap <- c("ATM"=3, "BRCA1"=0, "BRCA2"=0, "BRCAness"=0, "CHEK2"=4, "Other"=1, "Other_g_m"=7, "PALB2"=9, "RAD51B"=6, "RAD51C"=8)
+levelOrder <- c("Other", "BRCAness", "BRCA2", "BRCA1", "CHEK2", "ATM", "RAD51C", "PALB2", "RAD51B")
+
+plotData <- select(rtsne_more_mut, chart_lab_2, Val_1, Val_2)
+colnames(plotData)[1] <- "Category"
+plotData$Category <- factor(plotData$Category, levels=levelOrder)
+
+c <- ggplot(plotData %>% arrange(Category),
+       aes(x=Val_1,
+           y=Val_2,
+           size=Category,
+           color=Category,
+           shape=Category,
+           stroke=1.1)
+     ) +
+     scale_color_manual(name="Germline mutation", values = colorMap) +
+     theme_bw() +
+     theme(text = element_text(size=12)) +
+     scale_size_manual(values=sizeMap) +
+     scale_shape_manual(name="Germline mutation", breaks=labels_2, values = shapeMap) +
+     guides(size=FALSE, color=FALSE) +
+     geom_point() +
+     xlab("Dimension 1") +
+     ylab("Dimension 2") +
+     guides(shape = guide_legend(override.aes = list(size=4)))
+
+plot(c)
+ggsave(filename="../Rtsne_mut_test_08.pdf", height = img_h, width = img_w, units = "in", dpi=300)
+```
+
+

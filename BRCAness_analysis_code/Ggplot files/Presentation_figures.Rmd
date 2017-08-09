@@ -1,0 +1,268 @@
+---
+title: "Methylation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## number of germline mutations in HRR genes other than BRCA1/2
+
+```{r}
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+
+HRR_genes <- c("BRCA1", "BRCA2", "RAD51", "RAD51B", "RAD51D", "DMC1", "XRCC2", "XRCC3", "RAD52", "RAD54L", "RAD54B", "SHFM1", "RAD50", "MRE11A", "NBN", "RBBP8", "MUS81", "EME1", "EME2", "GIYD1", "GIYD2", "GEN1", "CHEK2", "ATM", "TP53", "CDH1", "BRIP1")
+
+germlineMutationData <- read_tsv("../Data/germline_snv_indel.tsv")
+germlineMutationFrequencies <- table(germlineMutationData$Gene)
+
+germlineMutationPlotData <- filter(germlineMutationData, Gene %in% HRR_genes)
+germlineMutationPlotData$Gene <- factor(germlineMutationPlotData$Gene)
+
+germlineSampleNames <- cbind(germlineMutationPlotData$Sample_ID)
+```
+
+```{r}
+subtypeSamples <- sort(unique(TCGASubtypeData$Patient_ID))
+subtypeCategory <- unique(sort(TCGASubtypeData$PAM50))
+subtypeData <- filter(TCGASubtypeData, PAM50 %in% subtypeCategory)
+subtypeData2 <- filter(subtypeData, Gene %in% HRR_genes)
+
+subtypeDataFrame <- NULL
+
+comboContainer <- inner_join(subtypeData, germlineMutationPlotData)
+
+subtypeGermlinePlotData <- filter(comboContainer, Gene %in% HRR_genes)
+
+subtypeGermlinePlotData$Gene <- factor(subtypeGermlinePlotData$Gene)
+```
+
+```{r}
+c <- ggplot(subtypeData2, aes(x=reorder(Gene,Gene, function(x)-length(x))))
+c + geom_bar(color = "black", fill="#008080") + xlab("Gene") + ylab("Number of mutations") + theme(text = element_text(size=26), axis.text.x = element_text(angle=90, hjust=1)) ###+ scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/germ_mutations_hrr.png", height = 11, width = 10, units = "in")
+```
+
+## number of patients in each of the three categories
+## I saved this data to a file, this step can be skipped.
+
+```{r}
+ cat_data <- (read_tsv("../Data/rtsne_evidence_more_germ.txt"))
+ 
+ Som_stat <- NULL
+ new_column <- sapply(cat_data$BRCA_evidence, function(x)
+ {
+   Som_stat <- ""
+   if (is.na(x)) { Som_stat <- "Other" }
+   else if(x == "Deletion_BRCA1") { Som_stat <- "BRCA_like" }
+   else if(x == "Deletion_BRCA2") { Som_stat <- "BRCA_like" }
+   else if(x == "Germline_BRCA1_mutation") { Som_stat <- "BRCA" }
+   else if(x == "Germline_BRCA2_mutation") { Som_stat <- "BRCA" }
+   else if(x == "Methylation_BRCA1") { Som_stat <- "BRCA_like" }
+   else if(x == "Methylation_BRCA2") { Som_stat <- "BRCA_like" }
+   else if(x == "Somatic_BRCA1_mutation") { Som_stat <- "BRCA_like" }
+   else if(x == "Somatic_BRCA2_mutation") { Som_stat <- "BRCA_like" }
+   else { Som_stat <- "Other" }
+   return(Som_stat)
+ })
+ 
+ cat_data$BRCA_like <- new_column
+ ```
+ 
+```{r}
+ bat_data <- (read_tsv("../Data/rtsne_mut_more_germ.txt"))
+ 
+ Som_stat <- NULL
+ new_column <- sapply(bat_data$BRCA_evidence, function(x)
+ {
+   Som_stat <- ""
+   if (is.na(x)) { Som_stat <- "Other" }
+   else if(x == "Deletion_BRCA1") { Som_stat <- "BRCA_like" }
+   else if(x == "Deletion_BRCA2") { Som_stat <- "BRCA_like" }
+   else if(x == "Germline_BRCA1_mutation") { Som_stat <- "BRCA" }
+   else if(x == "Germline_BRCA2_mutation") { Som_stat <- "BRCA" }
+   else if(x == "Methylation_BRCA1") { Som_stat <- "BRCA_like" }
+   else if(x == "Methylation_BRCA2") { Som_stat <- "BRCA_like" }
+   else if(x == "Somatic_BRCA1_mutation") { Som_stat <- "BRCA_like" }
+   else if(x == "Somatic_BRCA2_mutation") { Som_stat <- "BRCA_like" }
+   else { Som_stat <- "Other" }
+   return(Som_stat)
+ })
+ 
+bat_data$BRCA_like <- new_column
+```
+
+```{r}
+write.table(cat_data, file="../Data/rtsne_gen_like.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+write.table(bat_data, file="../Data/rtsne_mut_like.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+```
+
+```{r}
+cat_data <- read_tsv("../Data/rtsne_gen_like.txt")
+bat_data <- read_tsv("../Data/rtsne_mut_like.txt")
+rat_data <- read_tsv("../Data/rtsne_mut_more_germ.txt")
+```
+
+```{r}
+zat_data <- cat_data
+zat_data$BRCA_like <- lapply(zat_data$BRCA_like, function(x) {gsub("BRCA_like", "BRCAness", x) })
+zat_data <- as.data.frame(zat_data)
+
+cat_data$BRCA_like <- as.character(zat_data$BRCA_like)
+```
+
+```{r}
+c <- ggplot(cat_data, aes(x=BRCA_like))
+c + geom_bar(color = "black", fill="#44ccbe") + aes(y= (..count..)/sum(..count..)) + xlab("") + ylab("Proportion of samples") + theme(text = element_text(size=36)) + theme_bw()
+
+ggsave(filename="../Thesis_images/BRCA_groups_bar.png", height =4, width =4, units = "in")
+```
+
+# Barplot of mutational signatures
+#One bar for Signature 2
+#Another bar Signature 3
+#A third bar for others
+#Show that patients with germline BRCA1/2 mutations tend to fall into 2 and 3
+
+```{r}
+#bat_data <- (read_tsv("../Data/rtsne_mut_more_germ.txt"))
+
+Som_stat <- NULL
+new_column <- sapply(bat_data$Max_signature, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "Signature.3") { Som_stat <- "Sig 3" }
+ else if(x == "Signature.2") { Som_stat <- "Sig 2" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+bat_data$sig_status <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(bat_data$Max_signature, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "Signature.3") { Som_stat <- "Sig 3" }
+ else if(x == "Signature.2") { Som_stat <- "Sig 2" }
+ else if(x == "Signature.1A") { Som_stat <- "Sig 1A" }
+ else if(x == "Signature.1B") { Som_stat <- "Sig 1B" }
+ else if(x == "Signature.8") { Som_stat <- "Sig 8" }
+ else if(x == "Signature.R1") { Som_stat <- "Sig R1" }
+ else if(x == "Signature.5") { Som_stat <- "Sig 5" }
+ else if(x == "Signature.13") { Som_stat <- "Sig 13" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+bat_data$top_sig <- new_column
+```
+
+```{r}
+c <- ggplot(bat_data, aes(x=BRCA_like))
+c + geom_bar(color = "black", fill="#44ccbe") + xlab("Tumor type") + ylab("Number of samples") + theme(text = element_text(size=26)) ###+ scale_fill_brewer()
+
+bat_empty <- filter(bat_data, sig_status=="Other")
+c <- ggplot(bat_empty, aes(x=reorder(BRCA_like,BRCA_like, function(x)-length(x))))
+c + geom_bar(color = "black", fill="#008080") + xlab("Tumor type") + ylab("Number of samples") + theme(text = element_text(size=26)) ###+ scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/B_sig_other_bar.png", height = 9, width =8, units = "in")
+```
+
+```{r}
+bat_data_4 <- filter(bat_data, top_sig!="Other")
+c <- ggplot(bat_data_4, aes(x=reorder(top_sig,top_sig, function(x)-length(x))))
+c + geom_bar(color = "black", fill="#008080") + aes(y= (..count..)/sum(..count..)) + xlab("Signature") + ylab("Proportion") + theme(text = element_text(size=24), axis.text.x = element_text(angle=90, hjust=1)) ###+ scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/top_sigs_bar_prop.png", height = 9, width =8, units = "in")
+```
+
+```{r}
+sig2 <- filter(bat_data, sig_status=="Sig 2")
+
+c <- ggplot(sig2, aes(x=reorder(BRCA_like,BRCA_like, function(x)-length(x))))
+c + geom_bar(color = "black", fill="#008080") + xlab("Sig 2 BRCA status") + ylab("Count") + theme(text = element_text(size=24), axis.text.x = element_text(angle=90, hjust=1)) ###+ scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/sigs_2_bar.png", height = 9, width =8, units = "in")
+```
+
+```{r}
+sig3 <- filter(bat_data, sig_status=="Sig 3")
+
+c <- ggplot(sig3, aes(x=reorder(BRCA_like,BRCA_like, function(x)-length(x))))
+c + geom_bar(color = "black", fill="#008080") + xlab("Sig 3 BRCA status") + ylab("Count") + theme(text = element_text(size=24), axis.text.x = element_text(angle=90, hjust=1)) ###+ scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/sigs_3_bar.png", height = 9, width =8, units = "in")
+```
+
+```{r}
+sig_brca <- filter(bat_data, BRCA_like=="BRCA"|BRCA_like=="BRCA_like")
+
+c <- ggplot(sig_brca, aes(x=reorder(BRCA_like,BRCA_like, function(x)-length(x)), fill=sig_status))
+c + geom_bar(color = "black") + xlab("BRCA signature status") + ylab("Max signature") + theme(text = element_text(size=24)) + scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/BRCA_sig_status_bar.png", height = 9, width =8, units = "in")
+```
+
+```{r}
+gen_brca <- filter(cat_data, BRCA_like=="BRCA"|BRCA_like=="BRCA_like")
+cat_data_nan <- cat_data
+cat_data_nan <- cat_data_nan[complete.cases(cat_data_nan[,15]),]
+
+c <- ggplot(cat_data, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=BRCA_like))
+c + geom_bar(color = "black") + xlab("BRCA signature status") + ylab("Subtype") + theme(text = element_text(size=24)) + scale_fill_brewer() #+ scale_y_continuous(labels=percent)
+
+colnames(cat_data)[20] <- c("BRCAness")
+
+c <- ggplot(cat_data, aes(x=PAM50, fill=BRCAness))
+c + geom_bar(color = "black") + aes(y= (..count..)/sum(..count..)) + xlab("Cancer subtype") + ylab("Proportion") + theme(text = element_text(size=24)) + scale_fill_brewer()
+ggsave(filename="../Thesis_images/Bar_subtype_ness.png", height = 9, width =8, units = "in")
+
+colnames(cat_data)[20] <- c("BRCA_like")
+
+c <- ggplot(cat_data_nan, aes(x=PAM50, y=((..count..)/sum(..count..)), fill=BRCA_like))
+c + geom_bar(color = "black") + xlab("Cancer subtype") + ylab("Proportion") + theme(text = element_text(size=24)) + scale_fill_brewer()
+```
+
+```{r}
+BRCA_cat <- filter(cat_data, BRCA_like == "Other")
+cat_bar <- NULL
+n_num <- table(BRCA_cat$PAM50 == "LumB")
+temp_cat <- c("All LumB", 175)
+cat_bar <- rbind(cat_bar, temp_cat)
+
+new_bar <- data.frame(
+  group = c("Basal", "Basal", "Basal", "LumA", "LumA", "LumA", "LumB", "LumB", "LumB", "Her2", "Her2", "Her2", "Normal", "Normal", "Normal"),
+  brca = c("Other", "BRCA", "BRCA_ness", "Other", "BRCA", "BRCA_ness", "Other", "BRCA", "BRCA_ness", "Other", "BRCA", "BRCA_ness", "Other", "BRCA", "BRCA_ness"),
+  value = c(119, 21, 33, 451, 18, 26, 175, 4, 12, 67, 1, 7, 28, 3, 3),
+  max = c(173, 173, 173, 495, 495, 495, 191, 191, 191, 75, 75, 75, 34, 34, 34)
+  
+)
+two_bar <- new_bar
+two_bar$value <- two_bar$value/two_bar$max
+  
+c <- ggplot(two_bar, aes(x=group, y=value, fill=brca)) 
+c + geom_bar(stat = "identity", color="black") + xlab("Cancer subtype") + ylab("Proportion") + theme(text = element_text(size=24)) + scale_fill_manual(values = c("Other"="#add8e6", "BRCA"="#19198c", "BRCA_ness"="#6666ff") )
+
+ggsave(filename="../Thesis_images/BRCA_gen_status_bar2.png", height = 9, width =8, units = "in")
+```
+
+```{r}
+c <- ggplot(gen_brca, aes(x=PAM50, fill=BRCA_like))
+c + geom_bar(color = "black") + xlab("BRCA signature status") + ylab("Subtype") + theme(text = element_text(size=24)) #+ scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/BRCA_subtype_status_bar.png", height = 9, width =8, units = "in")
+```

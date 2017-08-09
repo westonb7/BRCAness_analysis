@@ -1,0 +1,17 @@
+#!/bin/bash
+
+\wget -O - http://install.perlbrew.pl | bash
+source ~/perl5/perlbrew/etc/bashrc
+perlbrew --notest install perl-5.8.8 --thread --multi
+
+cd ~/perl5/perlbrew/build/perl-5.8.8
+make install
+
+wget http://www.openbioinformatics.org/penncnv/download/penncnv.revision140527.tar.gz
+tar -zxvf penncnv.revision140527.tar.gz
+rm penncnv.revision140527.tar.gz
+
+#cd penncnv
+#source ~/perl5/perlbrew/etc/bashrc
+#perlbrew use perl-5.8.8
+#perl detect_cnv.pl

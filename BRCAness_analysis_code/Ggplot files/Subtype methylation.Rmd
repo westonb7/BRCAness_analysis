@@ -1,0 +1,133 @@
+---
+title: "CancerSubtype"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(extremevalues)
+```
+
+## Read in data
+
+```{r}
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+```
+
+## Somatic gene list
+```{r}
+germlineMutationData <- read_tsv("../Data/germline_snv_indel.tsv")
+
+germlineMutationFrequencies <- table(germlineMutationData$Gene)
+topGermlineMutationGenes <- names(head(sort(germlineMutationFrequencies, decreasing=TRUE), n=8))
+```
+
+## HRR Gene list
+
+```{r}
+HRR_genes <- c("BRCA1", "BRCA2", "RAD51", "RAD51B", "RAD51D", "DMC1", "XRCC2", "XRCC3", "RAD52", "RAD54L", "RAD54B", "SHFM1", "RAD50", "MRE11A", "NBN", "RBBP8", "MUS81", "EME1", "EME2", "GIYD1", "GIYD2", "GEN1")
+```
+
+## Get methylation data
+
+```{r}
+methylationData <- read_tsv("../Data/methyl_brca_re.tsv")
+
+methylationProbe <- table(methylationData$Probe)
+methylationGenes <- topGermlineMutationGenes
+methylationPlotData <- filter(methylationData, Probe %in% methylationGenes)
+
+methylationPlotData$Probe <- factor(methylationPlotData$Probe)
+uniqueMethylationSamples <- sort(unique(methylationData$Sample))
+```
+
+####
+## Try extremevalues to get outliers
+## This method works. Sortof. Is in the works.
+####
+
+```{r}
+geneContainer <- "BRCA1"
+methylationGene <- filter(methylationData, Probe %in% geneContainer)
+methylationOutliers <- getOutliersI(methylationGene$Value, rho=c(1, 1), FLim=c(0.1, 0.9), distribution="exponential")
+outlierPlot(methylationGene$Value, methylationOutliers, mode="qq")
+
+print(methylationOutliers)
+```
+
+## Create function to loop through multiple genes, get upper limit from extreme values, save methylation outliers to DF, then use a join function to combine with subtypeData
+## To do: save outlier information to a dataframe, inner.join() with subtype data
+
+```{r}
+geneLoopList <- NULL
+#geneLoopList <- c("BRCA1", "BRCA2", "TP53", "CHEK2", "ATM", "XRCC2")
+geneLoopList <- HRR_genes
+
+limitContainer <- NULL
+outlierContainer <- NULL
+
+for (gene in geneLoopList)
+{
+  geneContainer <- gene
+  methylationGene <- as.data.frame(filter(methylationData, Probe %in% geneContainer))
+  methylationSamples <- methylationGene$Sample
+  methylationValues <- methylationGene$Value
+
+  if(gene %in% c("BRCA1"))
+  {
+    distribution <- "exponential"
+  }
+  else
+  {
+    distribution <- "exponential"
+  }
+
+  methylationOutliers <- getOutliersI(methylationValues, rho=c(1, 1), FLim=c(0.1, 0.9), distribution=distribution)
+  outlierPlot(methylationGene$Value, methylationOutliers, mode="qq")
+  outlierSamples <- methylationSamples[methylationOutliers$iRight]
+  #print(outlierSamples)
+  
+  for (sample in outlierSamples)
+  {
+    tempCont <- c(sample, gene)
+    outlierContainer <- rbind(outlierContainer, tempCont)
+  }
+  
+  colnames(outlierContainer) <- c("Sample", "Gene")
+  #outlierContainer <- as.data.frame(outlierContainer)
+}
+
+outlierContainer <- as.data.frame(outlierContainer)
+```
+
+```{r}
+cheque_test <- select(subtypeData, Patient_ID, PAM50, Gene)
+comboContainer <- inner_join(cheque_test, outlierContainer, by = c("Patient_ID" = "Sample"))
+comboContainer$PAM50 <- as.factor(comboContainer$PAM50)
+```
+
+## Create bar chart for top 10 genes
+
+```{r}
+c <- ggplot(comboContainer, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene.y))
+c + geom_bar(color = "black") + xlab("Methylation by subtype") + scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/Subtype_methylation.png", height = 8, width = 9, units = "in")
+```
+
+## Save the methylation outliers to a file
+
+```{r}
+write.table(outlierContainer, file="methylation_outliers.txt", append= FALSE, quote=FALSE, sep="\t", row.names=TRUE, col.names=NA)
+```
+
+

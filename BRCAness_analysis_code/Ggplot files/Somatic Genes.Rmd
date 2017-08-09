@@ -1,0 +1,34 @@
+---
+title: "BRCA-like graphics"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+```
+
+## Somatic mutations
+
+The following graph indicates the number of somatic mutations observed in TCGA breast-cancer patients. Only the most highly mutated genes are shown.
+
+```{r}
+somaticMutationData <- read_tsv("../Data/brcaOutput_nofilter_nodups.txt")
+
+somaticMutationFrequencies <- table(somaticMutationData$Gene)
+topsomaticMutationGenes <- names(head(sort(somaticMutationFrequencies, decreasing=TRUE), n=11))
+
+somaticMutationPlotData <- filter(somaticMutationData, Gene %in% topsomaticMutationGenes)
+somaticMutationPlotData$Gene <- factor(somaticMutationPlotData$Gene)
+
+c <- ggplot(somaticMutationPlotData, aes(x=reorder(Gene,Gene, function(x)-length(x)), fill=Variant_Class))
+c + geom_bar(color = "black") + scale_fill_brewer()
+
+#ggsave(filename="../Thesis_images/Somatic_CNVs.png", height = 8, width = 9, units = "in")
+```

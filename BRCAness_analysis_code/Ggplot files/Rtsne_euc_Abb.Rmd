@@ -1,0 +1,621 @@
+---
+title: "Rtsne_euc_Abb"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+## Import the data
+
+```{r}
+euc_abb_check <- as.data.frame(read_tsv("../Data/rtsne_evidence_addition.txt"))
+
+Abb_1_1_data <- read_tsv("../Data/Abb_1_1_medians.txt")
+Abb_1_2_data <- read_tsv("../Data/Abb_1_2_medians.txt")
+Abb_2_2_data <- read_tsv("../Data/Abb_2_2_medians.txt")
+
+Abb_g_1_1_data <- read_tsv("../Data/Abb_g_1_1_medians.txt")
+Abb_g_1_2_data <- read_tsv("../Data/Abb_g_1_2_medians.txt")
+Abb_g_2_2_data <- read_tsv("../Data/Abb_g_2_2_medians.txt")
+
+Abb_mut_1_1_data <- read_tsv("../Data/Abb_g_1_1_mutsig.txt")
+Abb_mut_1_2_data <- read_tsv("../Data/Abb_g_1_2_mutsig.txt")
+Abb_mut_2_2_data <- read_tsv("../Data/Abb_g_2_2_mutsig.txt")
+
+med_1_1 <- 19.05653
+med_1_2 <- 21.38572
+med_2_2 <- 19.99126
+mean_1_1 <- 18.77286
+mean_1_2 <- 20.27746
+mean_2_2 <- 19.67014
+
+mean_g_1_1 <- 12.57766
+mean_g_1_2 <- 23.06978
+mean_g_2_2 <- 17.12459
+med_g_1_1 <- 6.761717
+med_g_1_2 <- 24.8217
+med_g_2_2 <- 14.88093
+
+mean_mut_1_1 <- 14.90609
+mean_mut_1_2 <- 15.92796
+mean_mut_2_2 <- 16.72776
+med_mut_1_1 <- 9.765604
+med_mut_1_2 <- 12.86575
+med_mut_2_2 <- 14.85316
+
+```
+
+## Different data set
+
+```{r}
+mean_grm_met_gene <- 18.53853
+mean_grm_cnv_gene <- 19.16112
+mean_grm_som_gene <- 21.49351
+med_grm_met_gene <- 19.14561
+med_grm_cnv_gene <- 19.65047
+med_grm_som_gene <- 23.13091
+
+mean_grm_met_mut <- 14.38038
+mean_grm_cnv_mut <- 12.85674
+mean_grm_som_mut <- 17.37483
+med_grm_met_mut <- 10.99625
+med_grm_cnv_mut <- 11.98882
+med_grm_som_mut <- 15.77192
+
+gene_gen_met_data <- read_tsv("../Data/Rando_grm_met_medians.txt")
+gene_gen_cnv_data <- read_tsv("../Data/Rando_grm_cnv_medians.txt")
+gene_gen_som_data <- read_tsv("../Data/Rando_grm_som_medians.txt")
+
+gene_mut_met_data <- read_tsv("../Data/Rando_sig_met_medians.txt")
+gene_mut_cnv_data <- read_tsv("../Data/Rando_sig_cnv_medians.txt")
+gene_mut_som_data <- read_tsv("../Data/Rando_sig_som_medians.txt")
+
+```
+
+## Import BRCA 1/2 separate typewise data
+
+```{r}
+
+gen_met_1_data <- read_tsv("../Data/Rando_grm_met_medians_1.txt")
+gen_cnv_1_data <- read_tsv("../Data/Rando_grm_cnv_medians_1.txt")
+gen_som_1_data <- read_tsv("../Data/Rando_grm_som_medians_1.txt")
+gen_met_2_data <- read_tsv("../Data/Rando_grm_met_medians_2.txt")
+gen_cnv_2_data <- read_tsv("../Data/Rando_grm_cnv_medians_2.txt")
+gen_som_2_data <- read_tsv("../Data/Rando_grm_som_medians_2.txt")
+
+mut_met_1_data <- read_tsv("../Data/Rando_sig_met_medians_1.txt")
+mut_cnv_1_data <- read_tsv("../Data/Rando_sig_cnv_medians_1.txt")
+mut_som_1_data <- read_tsv("../Data/Rando_sig_som_medians_1.txt")
+mut_met_2_data <- read_tsv("../Data/Rando_sig_met_medians_2.txt")
+mut_cnv_2_data <- read_tsv("../Data/Rando_sig_cnv_medians_2.txt")
+mut_som_2_data <- read_tsv("../Data/Rando_sig_som_medians_2.txt")
+
+mean_gen_met_1 <- 12.1878
+mean_gen_cnv_1 <- 21.2565
+mean_gen_som_1 <- 21.88899
+mean_gen_met_2 <- 11.43578
+mean_gen_cnv_2 <- 21.22292
+mean_gen_som_2 <- 20.65401
+
+median_gen_met_1 <- 6.775718
+median_gen_cnv_1 <- 20.42429
+median_gen_som_1 <- 24.71156
+median_gen_met_2 <- 9.540141
+median_gen_cnv_2 <- 21.59955
+median_gen_som_2 <- 21.70402
+
+mean_mut_met_1 <- 14.51142
+mean_mut_cnv_1 <- 17.28752
+mean_mut_som_1 <- 21.65113
+mean_mut_met_2 <- 15.69635
+mean_mut_cnv_2 <- 17.18791
+mean_mut_som_2 <- 21.4376
+
+median_mut_met_1 <- 8.470596
+median_mut_cnv_1 <- 17.47881
+median_mut_som_1 <- 21.63471
+median_mut_met_2 <- 11.27118
+median_mut_cnv_2 <- 15.14293
+median_mut_som_2 <- 19.72019
+
+```
+
+## Note to self: write a function to plot the charts, instead of rewriting the code every time
+## No, seriously, write a function for it.
+
+```{r}
+plot_histogram_med <- function(df, x_int, chart_title)
+{
+  p <- ggplot(df, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title=chart_title) + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+  p + geom_vline(aes(xintercept=(x_int)), color = "blue", linetype="dashed", size=1)
+}
+
+plot_histogram_mean <- function(df, x_int, chart_title)
+{
+  p <- ggplot(df, aes(x=Mean)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title=chart_title) + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+  p + geom_vline(aes(xintercept=(x_int)), color = "blue", linetype="dashed", size=1)
+}
+```
+
+## Function testing
+
+```{r}
+plot_histogram_med(gene_gen_met_data, med_grm_met_gene, "Gene expr median - methylation")
+ggsave(filename="../Thesis_images/Euc_gene_to_met.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gene_gen_cnv_data, med_grm_cnv_gene, "Gene expr median - deletions")
+ggsave(filename="../Thesis_images/Euc_gene_to_cnv.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gene_gen_som_data, med_grm_som_gene, "Gene expr median - somatic mutations")
+ggsave(filename="../Thesis_images/Euc_gene_to_som.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gene_mut_met_data, med_grm_met_mut, "Mutation sigs median - methylation")
+ggsave(filename="../Thesis_images/Euc_sig_to_met.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gene_mut_cnv_data, med_grm_cnv_mut, "Mutation sigs median - deletions")
+ggsave(filename="../Thesis_images/Euc_sig_to_cnv.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gene_mut_som_data, med_grm_som_mut, "Mutation sigs median - somatic mutaitons")
+ggsave(filename="../Thesis_images/Euc_sig_to_som.png", height = 8, width = 9, units = "in")
+
+## Means
+
+plot_histogram_mean(gene_gen_met_data, mean_grm_met_gene, "Gene expr mean - methylation")
+plot_histogram_mean(gene_gen_cnv_data, mean_grm_cnv_gene, "Gene expr mean - deletions")
+plot_histogram_mean(gene_gen_som_data, mean_grm_som_gene, "Gene expr mean - somatic mutations")
+plot_histogram_mean(gene_mut_met_data, mean_grm_met_mut, "Mutation sigs mean - methylation")
+plot_histogram_mean(gene_mut_cnv_data, mean_grm_cnv_mut, "Mutation sigs mean - deletions")
+plot_histogram_mean(gene_mut_som_data, mean_grm_som_mut, "Mutation sigs mean - somatic mutations")
+
+
+```
+
+## Gene expression data (1/2 separate)
+
+```{r}
+plot_histogram_med(gen_met_1_data, median_gen_met_1, "Gene expr median - methylation 1")
+ggsave(filename="../Thesis_images/Euc_gene_to_met_1.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gen_cnv_1_data, median_gen_cnv_1, "Gene expr median - deletions 1")
+ggsave(filename="../Thesis_images/Euc_gene_to_cnv_1.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gen_som_1_data, median_gen_som_1, "Gene expr median - somatic mutations 1")
+ggsave(filename="../Thesis_images/Euc_gene_to_som_1.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gen_met_2_data, median_gen_met_2, "Gene expr median - methylation 2")
+ggsave(filename="../Thesis_images/Euc_gene_to_met_2.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gen_cnv_2_data, median_gen_cnv_2, "Gene expr median - deletions 2")
+ggsave(filename="../Thesis_images/Euc_gene_to_cnv_2.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(gen_som_2_data, median_gen_som_2, "Gene expr median - somatic mutaitons 2")
+ggsave(filename="../Thesis_images/Euc_gene_to_som_2.png", height = 8, width = 9, units = "in")
+
+```
+
+## Mutational signature data (1/2 separate)
+
+```{r}
+
+plot_histogram_med(mut_met_1_data, median_mut_met_1, "Mut sigs median - methylation 1")
+ggsave(filename="../Thesis_images/Euc_mut_to_met_1.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(mut_cnv_1_data, median_mut_cnv_1, "Mut sigs median - deletions 1")
+ggsave(filename="../Thesis_images/Euc_mut_to_cnv_1.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(mut_som_1_data, median_mut_som_1, "Mut sigs median - somatic mutations 1")
+ggsave(filename="../Thesis_images/Euc_mut_to_som_1.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(mut_met_2_data, median_mut_met_2, "Mut sigs median - methylation 2")
+ggsave(filename="../Thesis_images/Euc_mut_to_met_2.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(mut_cnv_2_data, median_mut_cnv_2, "Mut sigs median - deletions 2")
+ggsave(filename="../Thesis_images/Euc_mut_to_cnv_2.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(mut_som_2_data, median_mut_som_2, "Mut sigs median - somatic mutaitons 2")
+ggsave(filename="../Thesis_images/Euc_mut_to_som_2.png", height = 8, width = 9, units = "in")
+```
+
+## Plot the Aberration 1-1, 2-2, 1-2 data 
+
+```{r}
+plot_histogram_med(Abb_1_1_data, med_1_1, "BRCA 1-1 median distance")
+#ggsave(filename="../Thesis_images/Euc_1_1_GXP_abb.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(Abb_2_2_data, med_2_2, "BRCA 2-2 median")
+#ggsave(filename="../Thesis_images/Euc_2_2_GXP_abb.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(Abb_1_2_data, med_1_2, "BRCA1-2 median")
+#ggsave(filename="../Thesis_images/Euc_1_2_GXP_abb.png", height = 8, width = 9, units = "in")
+```
+
+```{r}
+plot_histogram_mean(Abb_1_1_data, mean_1_1, "BRCA 1-1 mean distance")
+#ggsave(filename="../Thesis_images/Euc_1_1_GXP_abb_mean.png", height = 8, width = 9, units = "in")
+
+plot_histogram_mean(Abb_2_2_data, mean_2_2, "BRCA 2-2 mean distance")
+#ggsave(filename="../Thesis_images/Euc_2_2_GXP_abb_mean.png", height = 8, width = 9, units = "in")
+
+plot_histogram_mean(Abb_1_2_data, mean_1_2, "BRCA 1-2 mean distance")
+#ggsave(filename="../Thesis_images/Euc_1_2_GXP_abb_mean.png", height = 8, width = 9, units = "in")
+```
+
+## Plot the altered data (just germline + methylation - gene expression)
+
+```{r}
+p <- ggplot(Abb_g_1_1_data, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 1-1 alt median distance") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(med_g_1_1)), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_1_1_GXP_alt.png", height = 8, width = 9, units = "in")
+
+p <- ggplot(Abb_g_2_2_data, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 2-2 alt median distance") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(med_g_2_2)), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_2_2_GXP_alt.png", height = 8, width = 9, units = "in")
+
+p <- ggplot(Abb_g_1_2_data, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 1-2 alt median distance") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(med_g_1_2)), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_1_2_GXP_alt.png", height = 8, width = 9, units = "in")
+
+```
+
+```{r}
+p <- ggplot(Abb_g_1_1_data, aes(x=Mean)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 1-1 alt mean distance") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(mean(mean_g_1_1))), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_1_1_GXP_alt_mean.png", height = 8, width = 9, units = "in")
+
+p <- ggplot(Abb_g_2_2_data, aes(x=Mean)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 2-2 alt mean distance") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(mean(mean_g_2_2))), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_2_2_GXP_alt_mean.png", height = 8, width = 9, units = "in")
+
+p <- ggplot(Abb_g_1_2_data, aes(x=Mean)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 1-2 alt mean distance") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(mean(mean_g_1_2))), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_1_2_GXP_alt_mean.png", height = 8, width = 9, units = "in")
+
+```
+
+## Plot the modified (germline + methylation) data for mutational signature data
+
+```{r}
+p <- ggplot(Abb_mut_1_1_data, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 1-1 median distance Mut sigs") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(med_mut_1_1)), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_1_1_Mut.png", height = 8, width = 9, units = "in")
+
+p <- ggplot(Abb_mut_2_2_data, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 2-2 median distance Mut sigs") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(med_mut_2_2)), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_2_2_Mut.png", height = 8, width = 9, units = "in")
+
+p <- ggplot(Abb_mut_1_2_data, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 1-2 median distance Mut sigs") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(med_mut_1_2)), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_1_2_Mut.png", height = 8, width = 9, units = "in")
+
+```
+
+```{r}
+p <- ggplot(Abb_mut_1_1_data, aes(x=Mean)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 1-1 mean distance Mut sigs") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(mean(mean_mut_1_1))), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_1_1_Mut_mean.png", height = 8, width = 9, units = "in")
+
+p <- ggplot(Abb_mut_2_2_data, aes(x=Mean)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 2-2 mean distance Mut sigs") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(mean(mean_mut_2_2))), color = "blue", linetype="dashed", size=1)
+
+#ggsave(filename="../Thesis_images/Euc_2_2_Mut_mean.png", height = 8, width = 9, units = "in")
+
+p <- ggplot(Abb_mut_1_2_data, aes(x=Mean)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title="BRCA 1-2 mean distance Mut sigs") + theme(plot.title = element_text(hjust = 0.5, size=16, face="bold"))
+p + geom_vline(aes(xintercept=(mean(mean_mut_1_2))), color = "blue", linetype="dashed", size=1)
+
+ggsave(filename="../Thesis_images/Euc_1_2_Mut_mean.png", height = 8, width = 9, units = "in")
+
+```
+
+## Plot separated basal/non-basal data
+
+```{r}
+#basal_cnv_1 <- read_tsv("../Data/Rando_basal_cnv_medians_1.txt")
+basal_met_1 <- read_tsv("../Data/Rando_basal_met_medians_1.txt")
+basal_som_1 <- read_tsv("../Data/Rando_basal_som_medians_1.txt")
+basal_cnv_2 <- read_tsv("../Data/Rando_basal_cnv_medians_2.txt")
+#basal_met_2 <- read_tsv("../Data/Rando_basal_met_medians_2.txt")
+basal_som_2 <- read_tsv("../Data/Rando_basal_som_medians_2.txt")
+
+non_cnv_1 <- read_tsv("../Data/Rando_non_cnv_medians_1.txt")
+non_met_1 <- read_tsv("../Data/Rando_non_met_medians_1.txt")
+non_som_1 <- read_tsv("../Data/Rando_non_som_medians_1.txt")
+non_cnv_2 <- read_tsv("../Data/Rando_non_cnv_medians_2.txt")
+non_met_2 <- read_tsv("../Data/Rando_non_met_medians_2.txt")
+non_som_2 <- read_tsv("../Data/Rando_non_som_medians_2.txt")
+
+#mean_basal_cnv_1 <- 11
+mean_basal_met_1 <- 4.80093486193006
+mean_basal_som_1 <- 4.99156590690245
+mean_basal_cnv_2 <- 6.00051655724446
+#mean_basal_met_2 <- 11
+mean_basal_som_2 <- 7.13422973779744
+
+#med_basal_cnv_1 <- 11
+med_basal_met_1 <- 5.18438592661722
+med_basal_som_1 <- 5.00860735875168
+med_basal_cnv_2 <- 6.22324338080521
+#med_basal_met_2 <- 11
+med_basal_som_2 <- 7.33268285553571
+
+mean_non_cnv_1 <- 17.6895623788805
+mean_non_met_1 <- 15.1817198709995
+mean_non_som_1 <- 17.9113035075484
+mean_non_cnv_2 <- 17.0682586222828
+mean_non_met_2 <- 8.87999071642009
+mean_non_som_2 <- 16.8651063662368
+
+med_non_cnv_1 <- 16.793828055134
+med_non_met_1 <- 15.4939627934258
+med_non_som_1 <- 16.8338964488551
+med_non_cnv_2 <- 16.9658166169098
+med_non_met_2 <- 8.21150601922797
+med_non_som_2 <- 15.1583406456297
+```
+
+## Actual plots - basal
+
+```{r}
+plot_histogram_med(basal_met_1, med_basal_met_1, "Gene Expr - Basal Methylation BRCA1")
+ggsave(filename="../Thesis_images/Euc_basal_met_1_med.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(basal_som_1, med_basal_som_1, "Gene Expr - Basal Somatic BRCA1")
+ggsave(filename="../Thesis_images/Euc_basal_som_1_med.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(basal_cnv_2, med_basal_cnv_2, "Gene Expr - Basal CNV BRCA2")
+ggsave(filename="../Thesis_images/Euc_basal_cnv_2_med.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(basal_som_2, med_basal_som_2, "Gene Expr - Basal Somatic BRCA2")
+ggsave(filename="../Thesis_images/Euc_basal_som_2_med.png", height = 8, width = 9, units = "in")
+
+```
+
+## Actual plots - non-basal
+
+```{r}
+plot_histogram_med(non_met_1, med_non_met_1, "Gene Expr - Non-basal Methylation BRCA1")
+ggsave(filename="../Thesis_images/Euc_non_met_1_med.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(non_cnv_1, med_non_cnv_1, "Gene Expr - Non-basal CNV BRCA1")
+ggsave(filename="../Thesis_images/Euc_non_cnv_1_med.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(non_som_1, med_non_som_1, "Gene Expr - Non-basal Somatic BRCA1")
+ggsave(filename="../Thesis_images/Euc_non_som_1_med.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(non_met_2, med_non_met_2, "Gene Expr - Non-basal Methylation BRCA2")
+ggsave(filename="../Thesis_images/Euc_non_met_2_med.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(non_cnv_2, med_non_cnv_2, "Gene Expr - Non-basal CNV BRCA2")
+ggsave(filename="../Thesis_images/Euc_non_cnv_2_med.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(non_som_2, med_non_som_2, "Gene Expr - Non-basal Somatic BRCA2")
+ggsave(filename="../Thesis_images/Euc_non_som_2_med.png", height = 8, width = 9, units = "in")
+
+```
+
+## Get data for sig 2/3 plotting
+
+```{r}
+sig_3_1_met_med <- 5.11185223935541
+sig_3_1_cnv_med <- 6.05495791979166
+sig_3_1_som_med <- 5.78426252447971
+  
+sig_3_2_met_med <- 6.17662398020819
+sig_3_2_cnv_med <- 7.19321631299672
+sig_3_2_som_med <- 4.72826530339699
+
+sig_2_1_cnv_med <- 4.53380241901694
+sig_2_1_som_med <- 9.95169449902735
+
+sig_3_1_met_data <- read_tsv("../Data/Rando_sig3_met_medians_1.txt")
+sig_3_1_cnv_data <- read_tsv("../Data/Rando_sig3_cnv_medians_1.txt")
+sig_3_1_som_data <- read_tsv("../Data/Rando_sig3_som_medians_1.txt")
+  
+sig_3_2_met_data <- read_tsv("../Data/Rando_sig3_met_medians_2.txt")
+sig_3_2_cnv_data <- read_tsv("../Data/Rando_sig3_cnv_medians_2.txt")
+sig_3_2_som_data <- read_tsv("../Data/Rando_sig3_som_medians_2.txt")
+  
+sig_2_1_cnv_data <- read_tsv("../Data/Rando_sig2_cnv_medians_1.txt")
+sig_2_1_cnv_data <- na.omit(sig_2_1_cnv_data)
+sig_2_1_som_data <- read_tsv("../Data/Rando_sig2_som_medians_1.txt")
+    
+```
+
+## Sig 2 plotting
+
+```{r}
+plot_histogram_med(sig_2_1_cnv_data, sig_2_1_cnv_med, "Mut_sig2 germline BRCA2 - CNV BRCA2")
+ggsave(filename="../Thesis_images/Euc_sig2_BRCA2_cnv.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(sig_2_1_som_data, sig_2_1_som_med, "Mut_sig2 germline BRCA2 - somatic BRCA2")
+ggsave(filename="../Thesis_images/Euc_sig2_BRCA2_som.png", height = 8, width = 9, units = "in")
+
+```
+
+## Sig 3 plotting
+
+```{r}
+plot_histogram_med(sig_3_1_met_data, sig_3_1_met_med, "Mut_sig3 germline BRCA1 - methylation BRCA1")
+ggsave(filename="../Thesis_images/Euc_sig3_BRCA1_cnv.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(sig_3_1_cnv_data, sig_3_1_cnv_med, "Mut_sig3 germline BRCA1 - CNV BRCA1")
+ggsave(filename="../Thesis_images/Euc_sig3_BRCA1_met.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(sig_3_1_som_data, sig_3_1_som_med, "Mut_sig3 germline BRCA1 - somatic BRCA1")
+ggsave(filename="../Thesis_images/Euc_sig3_BRCA1_som.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(sig_3_2_met_data, sig_3_2_met_med, "Mut_sig3 germline BRCA2 - methylation BRCA2")
+ggsave(filename="../Thesis_images/Euc_sig3_BRCA2_cnv.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(sig_3_2_cnv_data, sig_3_2_cnv_med, "Mut_sig3 germline BRCA2 - CNV BRCA2")
+ggsave(filename="../Thesis_images/Euc_sig3_BRCA2_met.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(sig_3_2_som_data, sig_3_2_som_med, "Mut_sig3 germline BRCA2 - somatic BRCA2")
+ggsave(filename="../Thesis_images/Euc_sig3_BRCA2_som.png", height = 8, width = 9, units = "in")
+
+```
+
+## Get data for basal_abb and germet/delsom data
+
+```{r}
+basal_ab1_ab2_med <- 5.63914007226462
+basal_germet_ds1_med <- 5.08698259486665
+basal_germet_ds2_med <- 7.32095066638976
+
+basal_ab1_ab2_data <- read_tsv("../Data/Rando_basal_any_abb_1_2.txt")
+basal_germet_ds1_data <- read_tsv("../Data/Rando_basal_germet_delsom_1.txt")
+basal_germet_ds2_data <- read_tsv("../Data/Rando_basal_germet_delsom_2.txt")
+
+```
+
+# Basal ab / germet-delsom plotting
+
+```{r}
+plot_histogram_med(basal_ab1_ab2_data, basal_ab1_ab2_med, "Basal BRCA1 - BRCA2, any aberration")
+ggsave(filename="../Thesis_images/Euc_basal_ab1_ab2.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(basal_germet_ds1_data, basal_germet_ds1_med, "Basal BRCA1 - ger+met vs other aberration")
+ggsave(filename="../Thesis_images/Euc_basal_germet_ds1.png", height = 8, width = 9, units = "in")
+
+plot_histogram_med(basal_germet_ds2_data, basal_germet_ds2_med, "Basal BRCA2 - ger+met vs other aberration")
+ggsave(filename="../Thesis_images/Euc_basal_germet_ds2.png", height = 8, width = 9, units = "in")
+
+```
+
+## Testing statistical analyses
+
+```{r}
+something <- 1
+
+p_val_calc <- function(df, value){
+  x_var <- 0
+  for (i in 1:(length(df))){
+    if (df[i] < value) x_var <- x_var + 1
+    p_val <- (x_var / (length(df) + 1) )
+    if (p_val == 0) { p_val <- 1/(length(df) + 1) }
+    else if (p_val == 1) { p_val <- ((length(df)) / (length(df) + 1)) }
+  }
+  return(p_val)
+}
+
+combined_p_vals <- NULL
+
+aggregate_p_vals <- function(df, value, other_df, gen_or_mut, brca1_or_2, category, label_1, label_2) {
+  p_val_temp <- p_val_calc(df, value)
+  temp_container <- c(p_val_temp, gen_or_mut, brca1_or_2, category, label_1, label_2)
+  other_df <- rbind(other_df, temp_container)
+  return(other_df)
+}
+
+#sd(basal_ab1_ab2_data$Median)
+#test_z <- (basal_ab1_ab2_med - mean(basal_ab1_ab2_data$Median)) / (sd(basal_ab1_ab2_data$Median)/sqrt(nrow(basal_ab1_ab2_data)))
+##View(basal_ab1_ab2_data)
+```
+
+## Run the above function
+
+## BRCA1_2 = comparing 1 to 2
+## BRCA1&2 = 1 and 2 joined together in the analysis
+
+```{r}
+
+combined_p_vals <- aggregate_p_vals(basal_ab1_ab2_data$Median, basal_ab1_ab2_med, combined_p_vals, "Gene", "BRCA1_2", "Basal", "BRCA1 all", "BRCA2 all")
+combined_p_vals <- aggregate_p_vals(basal_germet_ds1_data$Median, basal_germet_ds1_med, combined_p_vals, "Gene", "BRCA1", "Basal", "BRCA1 GerMet", "BRCA1 DelSom")
+combined_p_vals <- aggregate_p_vals(basal_germet_ds2_data$Median, basal_germet_ds2_med, combined_p_vals, "Gene", "BRCA2", "Basal", "BRCA2 GerMet", "BRCA2 DelSom")
+
+combined_p_vals <- aggregate_p_vals(Abb_g_1_1_data$Median, med_g_1_1, combined_p_vals, "Gene", "BRCA1", "None", "BRCA1 all", "BRCA1 all")
+combined_p_vals <- aggregate_p_vals(Abb_g_2_2_data$Median, med_g_2_2, combined_p_vals, "Gene", "BRCA2", "None", "BRCA2 all", "BRCA2 all")
+combined_p_vals <- aggregate_p_vals(Abb_g_1_2_data$Median, med_g_1_2, combined_p_vals, "Gene", "BRCA1_2", "None", "BRCA1 all", "BRCA2 all")
+
+combined_p_vals <- aggregate_p_vals(Abb_mut_1_1_data$Median, med_mut_1_1, combined_p_vals, "Mut", "BRCA1", "None", "BRCA1 all", "BRCA1 all")
+combined_p_vals <- aggregate_p_vals(Abb_mut_2_2_data$Median, med_mut_2_2, combined_p_vals, "Mut", "BRCA2", "None", "BRCA2 all", "BRCA2 all")
+combined_p_vals <- aggregate_p_vals(Abb_mut_1_2_data$Median, med_mut_1_2, combined_p_vals, "Mut", "BRCA1_2", "None", "BRCA1 all", "BRCA2 all")
+
+
+combined_p_vals <- aggregate_p_vals(gene_gen_met_data$Median, med_grm_met_gene, combined_p_vals, "Gene", "BRCA1&2", "None", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(gene_gen_cnv_data$Median, med_grm_cnv_gene, combined_p_vals, "Gene", "BRCA1&2", "None", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(gene_gen_som_data$Median, med_grm_som_gene, combined_p_vals, "Gene", "BRCA1&2", "None", "Germline", "Somatic")
+
+combined_p_vals <- aggregate_p_vals(gene_mut_met_data$Median, med_grm_met_mut, combined_p_vals, "Mut", "BRCA1&2", "None", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(gene_mut_cnv_data$Median, med_grm_cnv_mut, combined_p_vals, "Mut", "BRCA1&2", "None", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(gene_mut_som_data$Median, med_grm_som_mut, combined_p_vals, "Mut", "BRCA1&2", "None", "Germline", "Somatic")
+
+combined_p_vals <- aggregate_p_vals(gen_met_1_data$Median, median_gen_met_1, combined_p_vals, "Gene", "BRCA1", "None", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(gen_cnv_1_data$Median, median_gen_cnv_1, combined_p_vals, "Gene", "BRCA1", "None", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(gen_som_1_data$Median, median_gen_som_1, combined_p_vals, "Gene", "BRCA1", "None", "Germline", "Somatic")
+
+combined_p_vals <- aggregate_p_vals(gen_met_2_data$Median, median_gen_met_2, combined_p_vals, "Gene", "BRCA2", "None", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(gen_cnv_2_data$Median, median_gen_cnv_2, combined_p_vals, "Gene", "BRCA2", "None", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(gen_som_2_data$Median, median_gen_som_2, combined_p_vals, "Gene", "BRCA2", "None", "Germline", "Somatic")
+
+combined_p_vals <- aggregate_p_vals(mut_met_1_data$Median, median_mut_met_1, combined_p_vals, "Mut", "BRCA1", "None", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(mut_cnv_1_data$Median, median_mut_cnv_1, combined_p_vals, "Mut", "BRCA1", "None", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(mut_som_1_data$Median, median_mut_som_1, combined_p_vals, "Mut", "BRCA1", "None", "Germline", "Somatic")
+
+combined_p_vals <- aggregate_p_vals(mut_met_2_data$Median, median_mut_met_2, combined_p_vals, "Mut", "BRCA2", "None", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(mut_cnv_2_data$Median, median_mut_cnv_2, combined_p_vals, "Mut", "BRCA2", "None", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(mut_som_2_data$Median, median_mut_som_2, combined_p_vals, "Mut", "BRCA2", "None", "Germline", "Somatic")
+
+#combined_p_vals <- aggregate_p_vals(Abb_1_1_data$Median, med_1_1, combined_p_vals, "Uncertain", "Uncertain")
+#combined_p_vals <- aggregate_p_vals(Abb_2_2_data$Median, med_2_2, combined_p_vals, "Uncertain", "Uncertain")
+#combined_p_vals <- aggregate_p_vals(Abb_1_2_data$Median, med_1_2, combined_p_vals, "Uncertain", "Uncertain")
+
+combined_p_vals <- aggregate_p_vals(basal_met_1$Median, med_basal_met_1, combined_p_vals, "Gene", "BRCA1", "Basal", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(basal_som_1$Median, med_basal_som_1, combined_p_vals, "Gene", "BRCA1", "Basal", "Germline", "Somatic")
+combined_p_vals <- aggregate_p_vals(basal_cnv_2$Median, med_basal_cnv_2, combined_p_vals, "Gene", "BRCA2", "Basal", "Germline", "Deletions")
+combined_p_vals <- aggregate_p_vals(basal_som_2$Median, med_basal_som_2, combined_p_vals, "Gene", "BRCA2", "Basal", "Germline", "Somatic")
+
+## (Non for non-basal)
+
+combined_p_vals <- aggregate_p_vals(non_met_1$Median, med_non_met_1, combined_p_vals, "Gene", "BRCA1", "Non-basal", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(non_cnv_1$Median, med_non_cnv_1, combined_p_vals, "Gene", "BRCA1", "Non-basal", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(non_som_1$Median, med_non_som_1, combined_p_vals, "Gene", "BRCA1", "Non-basal", "Germline", "Somatic")
+
+combined_p_vals <- aggregate_p_vals(non_met_2$Median, med_non_met_2, combined_p_vals, "Gene", "BRCA2", "Non-basal", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(non_cnv_2$Median, med_non_cnv_2, combined_p_vals, "Gene", "BRCA2", "Non-basal", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(non_som_2$Median, med_non_som_2, combined_p_vals, "Gene", "BRCA2", "Non-basal", "Germline", "Somatic")
+
+## (Sig 2)
+
+combined_p_vals <- aggregate_p_vals(sig_2_1_cnv_data$Median, sig_2_1_cnv_med, combined_p_vals, "Mut", "BRCA1", "Signature 2", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(sig_2_1_som_data$Median, sig_2_1_som_med, combined_p_vals, "Mut", "BRCA1", "Signature 2", "Germline", "Somatic")
+
+combined_p_vals <- aggregate_p_vals(sig_3_1_met_data$Median, sig_3_1_met_med, combined_p_vals, "Mut", "BRCA1", "Signature 3", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(sig_3_1_cnv_data$Median, sig_3_1_cnv_med, combined_p_vals, "Mut", "BRCA1", "Signature 3", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(sig_3_1_som_data$Median, sig_3_1_som_med, combined_p_vals, "Mut", "BRCA1", "Signature 3", "Germline", "Somatic")
+
+combined_p_vals <- aggregate_p_vals(sig_3_2_met_data$Median, sig_3_2_met_med, combined_p_vals, "Mut", "BRCA2", "Signature 3", "Germline", "Methylation")
+combined_p_vals <- aggregate_p_vals(sig_3_2_cnv_data$Median, sig_3_2_cnv_med, combined_p_vals, "Mut", "BRCA2", "Signature 3", "Germline", "Deletion")
+combined_p_vals <- aggregate_p_vals(sig_3_2_som_data$Median, sig_3_2_som_med, combined_p_vals, "Mut", "BRCA2", "Signature 3", "Germline", "Somatic")
+
+```
+
+```{r}
+colnames(combined_p_vals) <- c("P_value", "Gene_or_mut_sig", "BRCA_1_or_2", "Category", "Label_1", "Label_2")
+write.table(combined_p_vals, file="../Data/Aggregate_p_values.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+```
+
+
+
+
+

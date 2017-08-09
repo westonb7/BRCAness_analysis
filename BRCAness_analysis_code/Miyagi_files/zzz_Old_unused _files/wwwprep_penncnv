@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#mkdir -p PennCNVFiles/apt
+#mkdir -p PennCNVFiles/lib
+
+#wget -O PennCNVFiles/gw6.tar.gz http://www.openbioinformatics.org/penncnv/download/gw6.tar.gz
+
+#cd PennCNVFiles
+#rm -rf gw6/
+#tar -zxvf gw6.tar.gz
+#rm gw6.tar.gz
+
+#wget -O PennCNVFiles/genomewidesnp6_libraryfile.zip http://www.affymetrix.com/Auth/support/downloads/library_files/genomewidesnp6_libraryfile.zip
+unzip PennCNVFiles/genomewidesnp6_libraryfile.zip

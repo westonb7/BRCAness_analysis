@@ -1,0 +1,197 @@
+---
+title: "Histogram_mapping"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+## Define functions 
+
+```{r}
+plot_histogram_med <- function(df, x_int, chart_title)
+{
+  p <- ggplot(df, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title=NULL) + theme_bw() + xlab("Euclidean distance") + ylab("# samples") + theme(plot.title = element_text(hjust = 0.5, size=30, face="bold"))
+  p + geom_vline(aes(xintercept=(x_int)), color = "black", linetype="dashed", size=2)
+}
+```
+
+# Define more functions
+
+```{r}
+p_val_calc <- function(df, value){
+  x_var <- 0
+  for (i in 1:(length(df))){
+    if (df[i] < value) x_var <- x_var + 1
+    p_val <- (x_var / (length(df) + 1) )
+    if (p_val == 0) { p_val <- 1/(length(df) + 1) }
+    else if (p_val == 1) { p_val <- ((length(df)) / (length(df) + 1)) }
+  }
+  return(p_val)
+}
+
+combined_p_vals <- NULL
+
+aggregate_p_vals <- function(df, value, other_df, gen_or_mut, brca1_or_2, category, label_1, label_2) {
+  p_val_temp <- p_val_calc(df$Median, value)
+  temp_container <- c(p_val_temp, gen_or_mut, brca1_or_2, category, label_1, label_2)
+  other_df <- rbind(other_df, temp_container)
+  return(other_df)
+}
+```
+
+## Import actual median data
+
+```{r}
+gene_median <- as.data.frame(read_tsv("../Data/Permutations_10000/basal_non_med.txt"))
+sig_median <- as.data.frame(read_tsv("../Data/Permutations_10000/sig_3_2_med.txt"))
+pal_median <- as.data.frame(read_tsv("../Data/Permutations_10000/sig_palb2_medians.txt"))
+
+gene_median <- unique(gene_median)
+sig_median <- unique(sig_median)
+
+row.names(gene_median) <- gene_median$Data_ID
+row.names(sig_median) <- sig_median$Data_ID
+row.names(pal_median) <- pal_median$Data_ID
+
+```
+
+## Import the randomized median data. Not all this data is used for the histograms
+
+```{r}
+
+Rando_genB_cnv_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_genB_cnv_medians_2.txt")
+Rando_genB_combo_som <- read_tsv("../Data/Permutations_10000/Rando_genB_combo_som.txt") 
+Rando_genB_met_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_genB_met_medians_1.txt")
+Rando_genB_som_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_genB_som_medians_1.txt")
+Rando_genB_som_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_genB_som_medians_2.txt")
+Rando_genN_cnv_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_genN_cnv_medians_1.txt")
+Rando_genN_cnv_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_genN_cnv_medians_2.txt")
+Rando_genN_combo_cnv <- read_tsv("../Data/Permutations_10000/Rando_genN_combo_cnv.txt")
+Rando_genN_combo_met <- read_tsv("../Data/Permutations_10000/Rando_genN_combo_met.txt")
+Rando_genN_combo_som <- read_tsv("../Data/Permutations_10000/Rando_genN_combo_som.txt")
+Rando_genN_met_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_genN_met_medians_1.txt")
+Rando_genN_met_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_genN_met_medians_2.txt")
+Rando_genN_som_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_genN_som_medians_1.txt")
+Rando_genN_som_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_genN_som_medians_2.txt")
+Rando_gen_all_1_1 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_1_1.txt")
+Rando_gen_all_1_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_1_2.txt")
+Rando_gen_all_2_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_2_2.txt")
+Rando_gen_all_cnv_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_cnv_medians_1.txt")
+Rando_gen_all_cnv_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_cnv_medians_2.txt")
+Rando_gen_all_met_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_met_medians_1.txt")
+Rando_gen_all_met_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_met_medians_2.txt")
+Rando_gen_all_som_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_som_medians_1.txt")
+Rando_gen_all_som_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_all_som_medians_2.txt")
+Rando_gen_combo_cnv <- read_tsv("../Data/Permutations_10000/Rando_gen_combo_cnv.txt")
+Rando_gen_combo_met <- read_tsv("../Data/Permutations_10000/Rando_gen_combo_met.txt")
+Rando_gen_combo_som <- read_tsv("../Data/Permutations_10000/Rando_gen_combo_som.txt")
+Rando_sig2_cnv_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig2_cnv_medians_1.txt")
+Rando_sig2_cnv_medians_1 <- na.omit(Rando_sig2_cnv_medians_1)
+Rando_sig2_som_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig2_som_medians_1.txt")
+Rando_sig2_som_medians_1 <- na.omit(Rando_sig2_som_medians_1)
+Rando_sig3_cnv_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig3_cnv_medians_1.txt")
+Rando_sig3_cnv_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_sig3_cnv_medians_2.txt")
+Rando_sig3_combo_cnv <- read_tsv("../Data/Permutations_10000/Rando_sig3_combo_cnv.txt")
+Rando_sig3_combo_met <- read_tsv("../Data/Permutations_10000/Rando_sig3_combo_met.txt")
+Rando_sig3_combo_som <- read_tsv("../Data/Permutations_10000/Rando_sig3_combo_som.txt")
+Rando_sig3_met_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig3_met_medians_1.txt")
+Rando_sig3_met_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_sig3_met_medians_2.txt")
+Rando_sig3_som_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig3_som_medians_1.txt")
+Rando_sig3_som_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_sig3_som_medians_2.txt")
+Rando_sig_all_1_1 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_1_1.txt") #
+Rando_sig_all_1_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_1_2.txt")
+Rando_sig_all_2_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_2_2.txt")
+Rando_sig_all_cnv_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_cnv_medians_1.txt") #
+Rando_sig_all_cnv_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_cnv_medians_2.txt")
+Rando_sig_all_met_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_met_medians_1.txt")
+Rando_sig_all_met_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_met_medians_2.txt")
+Rando_sig_all_som_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_som_medians_1.txt")
+Rando_sig_all_som_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_all_som_medians_2.txt")
+Rando_sig_combo_cnv <- read_tsv("../Data/Permutations_10000/Rando_sig_combo_cnv.txt") #
+Rando_sig_combo_met <- read_tsv("../Data/Permutations_10000/Rando_sig_combo_met.txt")
+Rando_sig_combo_som <- read_tsv("../Data/Permutations_10000/Rando_sig_combo_som.txt")
+Rando_sig_palb2_med_1_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_palb2_med_1_2.txt") #
+Rando_sig_palb2_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_sig_palb2_medians_1.txt")
+Rando_sig_palb2_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_palb2_medians_2.txt")
+Rando_sig_palplus_1_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_palplus_1_2.txt")
+Rando_sig_palplus_1 <- read_tsv("../Data/Permutations_10000/Rando_sig_palplus_1.txt")
+Rando_sig_palplus_2 <- read_tsv("../Data/Permutations_10000/Rando_sig_palplus_2.txt")
+Rando_gen_palb2_med_1_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_palb2_med_1_2.txt") #
+Rando_gen_palb2_medians_1 <- read_tsv("../Data/Permutations_10000/Rando_gen_palb2_medians_1.txt")
+Rando_gen_palb2_medians_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_palb2_medians_2.txt")
+Rando_gen_palplus_1_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_palplus_1_2.txt")
+Rando_gen_palplus_1 <- read_tsv("../Data/Permutations_10000/Rando_gen_palplus_1.txt")
+Rando_gen_palplus_2 <- read_tsv("../Data/Permutations_10000/Rando_gen_palplus_2.txt")
+```
+
+## Read in more data
+
+```{r}
+Rando_gen_BRCA_like <- read_tsv("../Data/Permutations_10000/fixed_gen_BRCA_like.txt")
+Rando_gen_BRCA_like <- Rando_gen_BRCA_like[1:10000,]
+
+Rando_gen_BRCA_other <- read_tsv("../Data/Permutations_10000/fixed_gen_BRCA_other.txt")
+Rando_gen_BRCA_other <- Rando_gen_BRCA_other[1:10000,]
+
+Rando_sig_BRCA_like <- read_tsv("../Data/Permutations_10000/fixed_sig_BRCA_like.txt")
+Rando_sig_BRCA_like <- Rando_sig_BRCA_like[1:10000,]
+
+Rando_sig_BRCA_other <- read_tsv("../Data/Permutations_10000/fixed_sig_BRCA_other.txt")
+Rando_sig_BRCA_other <- Rando_sig_BRCA_other[1:10000,]
+```
+
+## Plot the data in histograms
+
+```{r}
+plot_histogram_med(Rando_gen_all_1_1, gene_median["G_all_BRCA1_1", "Median"], "Gene expr BRCA1 homogeneity")
+ggsave(filename="../Thesis_images_pdf/Euc_gen_BRCA1_1.pdf", height = 3, width = 3, units = "in")
+plot_histogram_med(Rando_gen_all_1_2, gene_median["G_all_BRCA1_2", "Median"], "Gene expr BRCA1 - BRCA2")
+ggsave(filename="../Thesis_images_pdf/Euc_gen_BRCA1_2.pdf", height = 3, width = 3, units = "in")
+plot_histogram_med(Rando_gen_all_2_2, gene_median["G_all_BRCA2_2", "Median"], "Gene expr BRCA2 homogeneity")
+ggsave(filename="../Thesis_images_pdf/Euc_gen_BRCA2_2.pdf", height = 3, width = 3, units = "in")
+
+```
+
+# Plot histograms 
+
+```{r}
+plot_histogram_med(Rando_sig_all_1_1 , gene_median["G_all_BRCA1_1", "Median"], "Mutation signature BRCA1 homogeneity")
+ggsave(filename="../Thesis_images_pdf/Euc_sig_BRCA1_1.pdf", height = 3, width = 3, units = "in")
+plot_histogram_med(Rando_sig_all_1_2, gene_median["G_all_BRCA1_2", "Median"], "Mutation signature BRCA1 - BRCA2")
+ggsave(filename="../Thesis_images_pdf/Euc_sig_BRCA1_2.pdf", height = 3, width = 3, units = "in")
+plot_histogram_med(Rando_sig_all_2_2, gene_median["G_all_BRCA2_2", "Median"], "Mutation signature BRCA2 homogeneity")
+ggsave(filename="../Thesis_images_pdf/Euc_sig_BRCA2_2.pdf", height = 3, width = 3, units = "in")
+
+```
+
+## Plot the histograms for comparing between BRCA, BRCAness, and other.
+
+```{r}
+Rando_gen_BRCA_like <- unique(Rando_gen_BRCA_like)
+plot_histogram_med(Rando_gen_BRCA_like, gene_median["G_BRCA_BRCAlike", "Median"], " ")
+ggsave(filename="../Thesis_images_pdf/Euc_gen_BRCA_like.pdf", height = 3, width = 3, units = "in")
+
+Rando_gen_BRCA_other <- unique(Rando_gen_BRCA_other)
+plot_histogram_med(Rando_gen_BRCA_other, gene_median["G_BRCA_other", "Median"], " ")
+ggsave(filename="../Thesis_images_pdf/Euc_gen_BRCA_other.pdf", height = 3, width = 3, units = "in")
+
+Rando_sig_BRCA_like <- unique(Rando_sig_BRCA_like)
+plot_histogram_med(Rando_sig_BRCA_like, sig_median["G_BRCA_BRCAlike", "Median"], " ")
+ggsave(filename="../Thesis_images_pdf/Euc_sig_BRCA_like.pdf", height = 3, width = 3, units = "in")
+
+Rando_sig_BRCA_other <- unique(Rando_sig_BRCA_other)
+plot_histogram_med(Rando_sig_BRCA_other, sig_median["G_BRCA_other", "Median"], " ")
+ggsave(filename="../Thesis_images_pdf/Euc_sig_BRCA_other.pdf", height = 3, width = 3, units = "in")
+```
+

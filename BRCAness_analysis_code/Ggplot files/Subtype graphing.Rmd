@@ -1,0 +1,100 @@
+---
+title: "CancerSubtype"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Read in data
+
+```{r}
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+```
+
+## HRR genes
+
+```{r}
+HRR_genes <- c("BRCA1", "BRCA2", "RAD51", "RAD51B", "RAD51D", "DMC1", "XRCC2", "XRCC3", "RAD52", "RAD54L", "RAD54B", "SHFM1", "RAD50", "MRE11A", "NBN", "RBBP8", "MUS81", "EME1", "EME2", "GIYD1", "GIYD2", "GEN1")
+```
+
+## Get germline data
+
+```{r}
+germlineMutationData <- read_tsv("../Data/germline_snv_indel.tsv")
+```
+
+## Filter data
+
+```{r}
+germlineMutationFrequencies <- table(germlineMutationData$Gene)
+
+germlineMutationPlotData <- filter(germlineMutationData, Gene %in% HRR_genes)
+germlineMutationPlotData$Gene <- factor(germlineMutationPlotData$Gene)
+
+germlineSampleNames <- cbind(germlineMutationPlotData$Sample_ID)
+```
+
+## Sort by subtype, sort by whether or not there are mutations in BRCA1, etc.
+
+```{r}
+subtypeSamples <- sort(unique(TCGASubtypeData$Patient_ID))
+subtypeCategory <- unique(sort(TCGASubtypeData$PAM50))
+subtypeData <- filter(TCGASubtypeData, PAM50 %in% subtypeCategory)
+
+subtypeDataFrame <- NULL
+
+comboContainer <- inner_join(subtypeData, germlineMutationPlotData)
+
+subtypeGermlinePlotData <- filter(comboContainer, Gene %in% HRR_genes)
+
+subtypeGermlinePlotData$Gene <- factor(subtypeGermlinePlotData$Gene)
+subtypeGermlinePlotData <- subtypeGermlinePlotData[,1:10]
+subtypeGermlinePlotData <- unique(subtypeGermlinePlotData)
+
+Som_stat <- NULL
+new_column <- sapply(subtypeGermlinePlotData$Gene, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "BRCA1") { Som_stat <- "BRCA1" }
+ else if(x == "BRCA2") { Som_stat <- "BRCA2" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+subtypeGermlinePlotData$Gene_2 <- new_column
+```
+
+
+## Create bar chart for top 10 genes
+
+```{r}
+c <- ggplot(subtypeGermlinePlotData, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene))
+c + geom_bar(color = "black") + xlab("Germline mutations by subtype") ###+ scale_fill_brewer()
+
+c <- ggplot(subtypeGermlinePlotData, aes(x=PAM50, fill=Gene_2))
+c + geom_bar(color = "black") + xlab("Cancer subtype") + ylab("Number of mutations") + theme(text = element_text(size=28)) + scale_fill_brewer()
+
+ggsave(filename="../Thesis_images/BRCA_mutations_subtype.png", height = 10, width = 9, units = "in")
+```
+
+## Create bar chart for all genes
+
+```{r}
+c <- ggplot(comboContainer, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene))
+c + geom_bar(color = "black") + xlab("Germline mutations by subtype") 
+
+#ggsave(filename="../Thesis_images/subtype_germl_old.png", height = 8, width = 9, units = "in")
+```
+

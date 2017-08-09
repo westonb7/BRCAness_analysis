@@ -1,0 +1,62 @@
+---
+title: "Methylation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Methylation data
+
+```{r}
+methylationData <- read_tsv("../Data/methyl_brca_re.tsv")
+methylationProbe <- table(methylationData$Probe)
+methylationGenes <- c("BRCA1", "BRCA2")
+methylationGenes_2 <- c("BRCA1", "BRCA2", "TP53", "RB1", "PIK3CA")
+
+methylationPlotData <- filter(methylationData, Probe %in% methylationGenes)
+#print(methylationPlotData)
+
+methylationPlotData$Probe <- factor(methylationPlotData$Probe)
+cbbPalette <- c("#0072B2", "#D55E00", "#CC79A7")
+
+c <- ggplot(methylationPlotData, aes(Probe,Value))
+#c + geom_bar(color = "black", fill = "orange1") + xlab("") + ylab("Number of Mutations") + theme(text = element_text(size=30), axis.text.x = element_text(angle = 90, hjust = 1))
+c + geom_jitter(color = "black", mapping = NULL) + theme(text = element_text(size=24)) 
+
+ggsave(filename="../Thesis_images/Methylation_jitter_2.png", height = 5, width = 5, units = "in")
+```
+
+## Filtering results by 2 SD.'s from the mean
+
+```{r}
+containBRCA1 <- ("BRCA1")
+
+methylationBRCA1 <- filter(methylationPlotData, Probe %in% containBRCA1)
+valueBRCA1 <- methylationBRCA1$Value
+stdvBRCA1 <- sd(valueBRCA1)
+meanBRCA1 <- mean(valueBRCA1)
+
+methylatedSamples <- NULL
+
+for(sample in valueBRCA1)
+{
+  outlierSamples <- NULL
+  outlierValues <- NULL
+  if (sample >= (meanBRCA1 + (2 * stdvBRCA1)))
+  {
+    outlierValues <- sample
+  }
+  outlierSamples <- filter(methylationBRCA1, Value %in% outlierValues)
+  methylatedSamples <- rbind(methylatedSamples, outlierSamples)
+}
+```

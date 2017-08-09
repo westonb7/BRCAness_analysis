@@ -1,0 +1,206 @@
+---
+title: "Rtsne_mut_sigs"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+## Import the necessary datasets into a dataframe
+
+```{r}
+mut_sigs_origin <- (read_tsv("../Data/aggregate_weights_4.txt"))
+sampleIDs <- as.vector(as.data.frame(mut_sigs_origin)[,1])
+```
+
+## Format the data (try not to run this block more than once)
+
+```{r}
+mut_sigs <- mut_sigs_origin[,-1]
+mut_sigs <- as.matrix(mut_sigs)
+mut_sig_rows <- sampleIDs
+
+row.names(mut_sigs) <- mut_sig_rows
+mut_sig_cols <- colnames(mut_sigs)
+
+mut_sigs_2 <- unique(mut_sigs)
+```
+
+## Run Rtsne on the imported data set, and plot it
+
+```{r}
+rtsne_out <- Rtsne(mut_sigs, check_duplicates = FALSE, verbose = TRUE)
+plot(rtsne_out$Y)
+```
+
+## This section is for getting BRCA1/2 data
+
+```{r}
+germlineData <- as.data.frame(read_tsv("../Data/germline_snv_indel.tsv"))
+somaticData <- as.data.frame(read_tsv("../Data/BRCA_parsed_hg38.txt"))
+```
+
+## Germline - Build matrices
+
+```{r}
+uniqueGermlineGenes <- sort(unique(germlineData$Gene))
+uniqueSomaticGenes <- sort(unique(somaticData$Gene))
+uniqueSamples <- sort(unique(germlineData$Sample_ID))
+uniqueSomaticSamples <- sort(unique(somaticData$Sample)) ##Added
+
+uniqueTotalSamples <- c(uniqueSamples, uniqueSomaticSamples) ##A
+uniqueTotalSamples <- sort(unique(uniqueTotalSamples$Sample_ID)) ##A
+
+BRCAGenes <- c("BRCA1", "BRCA2")
+```
+
+## Create data matrix for combined data
+
+```{r}
+geneCounter <- 0
+
+cMat <- NULL
+for (sample_s in mut_sig_rows)
+{
+  BRCAstatus <- NULL
+  gene_one <- "BRCA1"
+  gene_two <- "BRCA2"
+  
+  {
+    geneCounter <- 0
+    geneSomaticB1 <- filter(somaticData, Gene==gene_one&Sample==sample_s)
+    geneGermlineB1 <- filter(germlineData, Gene==gene_one&Sample_ID==sample_s)
+    geneSomaticB2 <- filter(somaticData, Gene==gene_two&Sample==sample_s)
+    geneGermlineB2 <- filter(germlineData, Gene==gene_two&Sample_ID==sample_s)
+    geneTest1 <- filter(somaticData, Sample==sample_s)
+    geneTest2 <- filter(germlineData, Sample_ID==sample_s)
+    geneSampleValue <- ""
+  
+    if (nrow(geneSomaticB1) > 0 || nrow(geneGermlineB1) > 0) 
+      {
+        if(nrow(geneSomaticB2) > 0 || nrow(geneGermlineB2) > 0)
+        {          geneSampleValue <- paste("BRCA1 and BRCA2", sep="")         }
+        else  
+        {          geneSampleValue <- paste("BRCA1", sep="")        }
+      }
+    else if (nrow(geneSomaticB2) > 0 || nrow(geneGermlineB2) > 0)
+      {        geneSampleValue <- paste("BRCA2", sep="")      }
+    else if (nrow(geneTest1) > 0 || nrow(geneTest2) > 0 )
+      { geneSampleValue <- paste("Other", sep="") }  
+    else 
+      { geneSampleValue <- paste("No_data", sep="") }
+    
+    if (geneSampleValue != "No_data")
+      { BRCAstatus <- c(sample_s, geneSampleValue) }
+  }
+  if (is.null(BRCAstatus) == FALSE)
+    { cMat <- rbind(cMat, BRCAstatus) }
+}
+
+name_holder <- c("Sample", "BRCA_status")
+
+colnames(cMat) <- name_holder
+```
+
+## format the data in a way that can be used with ggplot2
+
+```{r}
+gMat <- as.data.frame(cMat)
+
+rtsne_gg <- rtsne_out$Y
+
+gene_counter <- 0
+rtsne_citrus <- NULL
+alist<-c(1:1044)
+
+for (item in alist)
+{
+  gene_counter <- gene_counter + 1
+  if (gene_counter <= 1044)
+  {
+    temp_container <- NULL
+    temp_container <- c(rtsne_gg[gene_counter,], gMat[gene_counter,]) 
+    rtsne_citrus <- rbind(rtsne_citrus, temp_container)
+  }
+  x_lemon = c("X", "Y", "Sample", "BRCA_status")
+  colnames(rtsne_citrus) <- x_lemon
+}
+```
+
+## Plotting with ggplot2
+
+```{r}
+rownames(rtsne_citrus) <- gMat$Sample
+rtsne_citrine <- data.frame(rtsne_citrus)
+
+c <- ggplot(rtsne_citrine, aes(x=as.numeric(rtsne_citrine[,1]),y=as.numeric(rtsne_citrine[,2]) , color=as.character(rtsne_citrine[,4]))) + scale_color_manual(name="BRCA status", values = c("4"="black", "3"="orange", "2"="purple", "1"="green"), breaks=c("1", "2", "3", "4"), labels=c("BRCA1", "Both", "BRCA2", "Other"))
+
+c + geom_point() + xlab("X value") + ylab("Y value")
+```
+
+## Define a function here to save "BRCA-like" IDs
+## All "BRCA-like" here are any that fall under a particular range in the rtsne plot
+##  The range is defined as within x1, x2, y1, and y2
+##  >x1, <x2, >y1, <y2
+##  Returns an object with "BRCA-like" IDs.
+
+```{r}
+selectedSamples <- function(rtsne_DF, x_one, x_two, y_one, y_two)
+{ 
+  brcaLikeDF <- NULL
+  apply(rtsne_DF, 1, function(row)
+  {
+    sample_container <- NULL
+    if (as.numeric(as.character(row[4])) == 4)
+    {
+      if (as.numeric(row[1]) > x_one && as.numeric(row[1]) < x_two && as.numeric(row[2]) > y_one && as.numeric(row[2]) < y_two)
+      {
+        sample_container <- c(row.names(row), "BRCA-like", "Mutation_sig")
+      }
+      else  { sample_container <- c(row.names(row), "Other", "None") }
+    }
+    else if(as.numeric(row[4] == 1))
+    {
+      sample_container <- c(row.names(row), "BRCA1", "Mutation")
+    }
+    else if(as.numeric(row[4] == 2))
+    {
+      sample_container <- c(row.names(row), "BRCA1&2", "Mutation")
+    }
+    else if(as.numeric(row[4] == 3))
+    {
+      sample_container <- c(row.names(row), "BRCA2", "Mutation")
+    }
+    brcaLikeDF <<- rbind(brcaLikeDF, sample_container)
+  } )
+  row.names(brcaLikeDF) <- row.names(rtsne_DF)
+  colnames(brcaLikeDF) <- c("BRCA_status", "Evidence")
+  return(brcaLikeDF)
+}
+```
+
+## Run the above function, save the output to a file.
+##  Note: since the output of rtsne is somewhat randomized, this needs to have
+##  X and Y values input manually, I should find a way to automize this eventually
+##  X1 and Y1 should be the smaller values, X2 and Y2 should be larger
+
+```{r}
+brcaLikeness <- selectedSamples(rtsne_citrus, -2, 12, -30, -14)
+```
+
+## Save brcaLikeness DF to file
+
+```{r}
+write.table(brcaLikeness, file="brca-likeness_mut_sig.txt", append= FALSE, quote=FALSE, sep="\t", row.names=TRUE, col.names=NA)
+```

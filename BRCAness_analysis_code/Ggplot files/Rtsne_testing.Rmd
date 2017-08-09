@@ -1,0 +1,45 @@
+---
+title: "Rtsne_testing"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+```
+
+## Code taken from the Github page, example code
+
+```{r}
+iris_unique <- unique(iris)                     # Remove duplicates
+set.seed(42)                                    # Sets seed for reproducibility
+tsne_out <- Rtsne(as.matrix(iris_unique[,1:4])) # Run TSNE
+plot(tsne_out$Y,col=iris_unique$Species)        # Plot the result
+
+```
+
+## Import the necessary datasets into a dataframe
+
+```{r}
+
+simulated_test <- (read_tsv("~/Documents/Jupyter_work/Simulated_Expression_TestData.tsv"))
+tumorIDs <- as.vector(as.data.frame(simulated_test)[,1])
+simulated_test <- simulated_test[,-1]
+simulated_test <- as.matrix(simulated_test)
+```
+
+## Run Rtsne on the imported data set, and plot it
+
+```{r}
+test_out <- Rtsne(simulated_test, check_duplicates = FALSE, verbose = TRUE)
+plot(test_out$Y)
+
+```

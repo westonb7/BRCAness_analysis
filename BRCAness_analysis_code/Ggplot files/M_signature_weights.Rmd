@@ -1,0 +1,59 @@
+---
+title: "M_signature_weights"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Define height and width for images to be saved
+
+```{r}
+img_h <- 7
+img_w <- 6.5
+```
+
+## Read in data
+
+```{r}
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+```
+
+## This script is taken from the R script in Miyagi
+
+```{r}
+library(deconstructSigs)
+
+sigs.input = mut.to.sigs.input(mut.ref = "../Data/mutec_2_aggregated.hg38.tsv", sample.id = "sample", chr = "chr", pos = "start", ref = "reference", alt = "alt", bsg = BSgenome.Hsapiens.UCSC.hg38)
+
+rowlow <- row.names(sigs.input)
+print(attributes(rowlow))
+
+output_4.sigs = whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id="TCGA-AN-A0FL", contexts.needed = TRUE, tri.counts.method="exome")
+
+aggregateWeights <- NULL
+
+for (i in 1:nrow(sigs.input)) {
+        output.sigs = whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id=rowlow[i], contexts.needed = TRUE, tri.counts.method="exome")
+        aggregateWeights = rbind(aggregateWeights, output.sigs$weights)
+}
+
+write.table(aggregateWeights, "aggregate_weights.txt", sep="\t", quote=FALSE, col.names=NA)
+lapply(aggregateWeights, write, "aggregate_weights.txt", append=TRUE, ncolumns= 1000)
+
+pdf("signature_plot_4.pdf", width = img_w, height = img_h)
+graphics.off
+plotSignatures(output_4.sigs)
+```
+
+

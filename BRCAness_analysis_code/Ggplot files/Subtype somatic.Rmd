@@ -1,0 +1,93 @@
+---
+title: "CancerSubtype"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Read in data
+
+```{r}
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+```
+
+## HRR Gene list
+
+```{r}
+#HRR_genes <- c("BRCA1", "BRCA2", "RAD51", "RAD51B", "RAD51D", "DMC1", "XRCC2", "XRCC3", "RAD52", "RAD54L", "RAD54B", "SHFM1", "RAD50", "MRE11A", "NBN", "RBBP8", "MUS81", "EME1", "EME2", "GIYD1", "GIYD2", "GEN1")
+
+## use this list for a less confusing chart
+HRR_genes <- c("BRCA1", "BRCA2", "RAD51", "XRCC2", "XRCC3", "RAD52", "RAD54B", "SHFM1", "RAD50", "MRE11A", "NBN", "RBBP8", "EME1", "EME2", "GIYD1", "GIYD2")
+```
+
+## Get somatic data
+
+```{r}
+#germlineMutationData <- read_tsv("../Data/germline_snv_indel.tsv")
+
+#germlineMutationFrequencies <- table(germlineMutationData$Gene)
+#topGermlineMutationGenes <- names(head(sort(germlineMutationFrequencies, decreasing=TRUE), n=8))
+somaticMutationData <- as.data.frame(read_tsv("../Data/BRCA_parsed_hg38.txt"))
+
+somaticMutationFrequencies <- table(somaticMutationData$Gene)
+
+somaticMutationPlotData <- filter(somaticMutationData, Gene %in% HRR_genes)
+somaticMutationPlotData$Gene <- factor(somaticMutationPlotData$Gene)
+```
+
+## Sort by subtype, sort by whether or not there are mutations in BRCA1, etc.
+
+```{r}
+subtypeSamples <- sort(unique(TCGASubtypeData$Patient_ID))
+subtypeCategory <- unique(sort(TCGASubtypeData$PAM50))
+subtypeData <- filter(TCGASubtypeData, PAM50 %in% subtypeCategory)
+
+subtypeDataFrame <- NULL
+
+## inner_join(x, y, by = NULL, copy = FALSE, suffix = c(".x", ".y"), ...)
+comboContainer <- left_join(somaticMutationPlotData, subtypeData, by = c("Sample" = "Patient_ID"))
+
+##subtypeGermlinePlotData <- filter(comboContainer, Gene %in% topGermlineMutationGenes)
+##subtypeGermlinePlotData$Gene <- factor(subtypeGermlinePlotData$Gene)
+```
+
+## Create bar chart for top 10 genes
+
+```{r}
+c <- ggplot(comboContainer, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene.x))
+c + geom_bar(color = "black") + xlab("Somatic mutations by subtype") ###+ scale_fill_brewer()
+
+#ggsave(filename="../Thesis_images/Subtype_somatic.png", height = 8, width = 9, units = "in")
+```
+
+## Create bar chart for all genes
+
+```{r}
+##c <- ggplot(comboContainer, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene.x))
+##c + geom_bar(color = "black") + xlab("Somatic mutations by subtype") 
+```
+
+## Create bar chart for genes of interest 
+############# 
+## This won't work as is, just modify the code by adding in a gene list in the filter line
+## Also, comboContainer is filtered above, create a non-filtered DF to use
+#############  
+
+```{r}
+GOI_container <- comboContainer
+#GOI_container <- filter(GOI_container, Gene.x %in% ###insert gene list of choice###  )
+c <- ggplot(GOI_container, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene.x))
+c + geom_bar(color = "black") + xlab("Somatic mutations by subtype") ###+ scale_fill_brewer()
+```
+

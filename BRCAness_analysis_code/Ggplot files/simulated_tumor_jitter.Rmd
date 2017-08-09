@@ -1,0 +1,37 @@
+---
+title: "CancerSubtype"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+## Read in data
+
+```{r}
+TCGASubtypeData <- as.data.frame(read_tsv("~/documents/Jupyter_work/Simulated_Expression_TestData.tsv"))
+```
+
+```{r}
+testing_df <- TCGASubtypeData
+##testing_df[ "Tumor" ] <- rownames(TCGASubtypeData)
+##testing_df$id <- rownames(testing_df)
+colnames(testing_df)[1] <- "Tumor_ID"
+df.molten <- melt( testing_df, id.vars="Tumor_ID", value.name="Weight", variable.name="Gene" )
+
+
+c <- ggplot(df.molten, aes(variable, value))
+c + geom_jitter(color = "black", width = 0.9, height = 0.6) + xlab("") + theme(text = element_text(size=12), axis.text.x = element_text(angle = 90, hjust = 1))
+
+#ggsave()
+```

@@ -1,0 +1,43 @@
+---
+title: "Somatic CNV"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Read data file
+
+```{r}
+somaticData <- read_tsv("../Data/somatic_CNV.tsv")
+```
+
+## Plot somatic data
+
+```{r}
+somaticGene_Symbol <- table(somaticData$Gene_Symbol)
+somaticGenes_2 <- c("BRCA1", "BRCA2", "TP53", "RB1", "PIK3CA")
+somaticGenes <- c("BRCA1", "BRCA2")
+
+somaticPlotData <- filter(somaticData, Gene_Symbol %in% somaticGenes)
+
+print(somaticPlotData)
+
+somaticPlotData$Gene_Symbol <- factor(somaticPlotData$Gene_Symbol)
+
+cbbPalette <- c("#0072B2", "#D55E00", "#CC79A7")
+
+c <- ggplot(somaticPlotData, aes(Gene_Symbol, Value))
+c + geom_jitter(color = "black", width = 0.4, height = 0.4) + xlab("") + theme(text = element_text(size=24), axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggsave(filename="../Thesis_images/CNV_jitter.png", height = 5, width = 4, units = "in")
+```

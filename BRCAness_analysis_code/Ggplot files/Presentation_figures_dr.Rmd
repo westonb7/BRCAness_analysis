@@ -1,0 +1,101 @@
+---
+title: "Presentation_figures"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Define height and width for images to be saved
+
+```{r}
+img_h <- 7
+img_w <- 6.5
+```
+
+# Import the data from files. This has already been formatted for use.
+
+```{r}
+cat_data <- read_tsv("../Data/rtsne_gen_like.txt")
+bat_data <- read_tsv("../Data/rtsne_mut_like.txt")
+rat_data <- read_tsv("../Data/rtsne_mut_more_germ.txt")
+```
+
+```{r}
+zat_data <- cat_data
+zat_data$BRCA_like <- lapply(zat_data$BRCA_like, function(x) {gsub("BRCA_like", "BRCAness", x) })
+zat_data <- as.data.frame(zat_data)
+
+cat_data$BRCA_like <- as.character(zat_data$BRCA_like)
+colnames(cat_data)[20] <- c("BRCAness")
+```
+
+# Plot the data for the bar chart showing proportions of patients in each category
+
+```{r}
+c <- ggplot(cat_data, aes(x=BRCAness))
+c + geom_bar(color = "black", fill="#44ccbe") + aes(y= (..count..)/sum(..count..)) + xlab("") + ylab("Proportion of samples") + theme(text = element_text(size=36)) + theme_bw()
+
+ggsave(filename="../BRCA_groups_proportions.pdf", height =img_h, width =img_w, units = "in")
+```
+
+# Barplot of mutational signatures
+
+```{r}
+#bat_data <- (read_tsv("../Data/rtsne_mut_more_germ.txt"))
+
+Som_stat <- NULL
+new_column <- sapply(bat_data$Max_signature, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "Signature.3") { Som_stat <- "Sig 3" }
+ else if(x == "Signature.2") { Som_stat <- "Sig 2" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+bat_data$sig_status <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(bat_data$Max_signature, function(x)
+{
+ Som_stat <- ""
+ if (is.na(x)) { Som_stat <- "Other" }
+ else if(x == "Signature.3") { Som_stat <- "Sig 3" }
+ else if(x == "Signature.2") { Som_stat <- "Sig 2" }
+ else if(x == "Signature.1A") { Som_stat <- "Sig 1A" }
+ else if(x == "Signature.1B") { Som_stat <- "Sig 1B" }
+ else if(x == "Signature.8") { Som_stat <- "Sig 8" }
+ else if(x == "Signature.R1") { Som_stat <- "Sig R1" }
+ else if(x == "Signature.5") { Som_stat <- "Sig 5" }
+ else if(x == "Signature.13") { Som_stat <- "Sig 13" }
+ else { Som_stat <- "Other" }
+ return(Som_stat)
+})
+
+bat_data$top_sig <- new_column
+```
+
+```{r}
+gen_brca <- filter(cat_data, BRCAness=="BRCA"|BRCAness=="BRCAness")
+cat_data_nan <- cat_data
+cat_data_nan <- cat_data_nan[complete.cases(cat_data_nan[,15]),]
+
+colnames(cat_data)[20] <- c("BRCAness")
+
+c <- ggplot(cat_data, aes(x=PAM50, fill=BRCAness))
+c + geom_bar(color = "black") + aes(y= (..count..)/sum(..count..)) + xlab("Cancer subtype") + ylab("Proportion") + theme(text = element_text(size=24)) + scale_fill_brewer() + labs(fill="")
+ggsave(filename="../Bar_subtype_ness.pdf", height = img_h, width = img_w, units = "in")
+
+```
+

@@ -1,0 +1,489 @@
+---
+title: "Heat Map"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## NOTE: this file was used to generate "waterfall" plots, which I still have. 
+##  Unfortunately, ComplexHeatmap isn't supported by current versions of R,
+##  so I can't test to see if this script still works for now
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ComplexHeatmap)
+library(circlize)
+```
+
+## Read germline/somatic mutation data
+
+```{r}
+germlineData <- as.data.frame(read_tsv("../Data/germline_snv_indel.tsv"))
+somaticData <- as.data.frame(read_tsv("../Data/BRCA_parsed_hg38.txt"))
+```
+
+## Germline - Build matrices
+```{r}
+uniqueGermlineGenes <- sort(unique(germlineData$Gene))
+uniqueSomaticGenes <- sort(unique(somaticData$Gene))
+uniqueSamples <- sort(unique(germlineData$Sample_ID))
+uniqueSomaticSamples <- sort(unique(somaticData$Sample)) ##Added
+
+uniqueTotalSamples <- c(uniqueSamples, uniqueSomaticSamples) ##A
+uniqueTotalSamples <- sort(unique(uniqueTotalSamples$Sample_ID)) ##A
+```
+
+```{r}
+test_lemon = 0
+test_lemon = test_lemon + 1
+print(test_lemon)
+test_lemon = test_lemon + 2
+print(test_lemon)
+```
+
+```{r}
+BRCA1_g_count = 0
+BRCA2_g_count = 0
+
+gMat <- NULL
+for (gene in uniqueGermlineGenes)
+{
+  geneValues <- NULL
+  for (sample in uniqueSamples)
+  {
+    geneSampleDataFrame <- filter(germlineData, Gene==gene&Sample_ID==sample)
+    
+    geneSampleValue <- ""
+    if (nrow(geneSampleDataFrame) > 0)
+      {
+        if (gene=="BRCA1") { BRCA1_g_count <- BRCA1_g_count + 1 }
+        if (gene=="BRCA2") { BRCA2_g_count <- BRCA2_g_count + 1 }
+        geneSampleValue <- paste(geneSampleDataFrame$Mutation_Type, ";", sep="")
+      }
+      
+    geneValues <- c(geneValues, geneSampleValue)
+  }
+  
+  gMat <- rbind(gMat, geneValues)
+}
+
+rownames(gMat) <- uniqueGermlineGenes
+colnames(gMat) <- uniqueSamples
+```
+
+## Germline - Create heatmap
+
+```{r}
+alter_fun = list(
+    background = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#FFFFFF", col = NA))
+    },
+    Insertion = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#206490", col = NA))
+    },
+    SNV = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#35ABBC", col = NA))
+    },
+    Deletion = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#4AE48B", col = NA))
+    }
+)
+
+col = c("Insertion" = "#206490", "SNV" = "#35ABBC","Deletion" = "#4AE48B")
+
+mutationOptions <- c("Insertion", "SNV", "Deletion")
+
+oncoPrint(gMat, get_type = function(x) strsplit(x, ";")[[1]],
+    alter_fun = alter_fun, col = col, 
+    column_title = "Germline Mutations",
+    heatmap_legend_param = list(title = "Value", at = mutationOptions,
+        labels = mutationOptions))
+```
+
+## Somatic data - build matricies
+
+```{r}
+##uniqueSomaticGenes <- sort(unique(somaticData$Gene))
+uniqueSomaticGenes <- uniqueGermlineGenes
+uniqueSomaticSamples <- NULL
+uniqueSomaticSamples <- sort(unique(somaticData$Sample)) ##Added
+
+geneCounter <- 0
+BRCA1_s_count <- 0
+BRCA2_s_count <- 0
+
+sMat <- NULL
+for (gene in uniqueSomaticGenes)
+{
+  geneValues <- NULL
+  for (sample in uniqueSomaticSamples)
+  {
+    geneCounter <- 0
+    geneSampleDataFrame <- filter(somaticData, Gene==gene&Sample==sample)
+    
+    geneSampleValue <- ""
+    if (nrow(geneSampleDataFrame) > 1) 
+      {
+        for (row in geneSampleDataFrame) 
+        {
+          geneCounter <- (geneCounter + 1)
+          if (gene == "BRCA1") { BRCA1_s_count <- BRCA1_s_count + 1 }
+          if (gene == "BRCA2") { BRCA2_s_count <- BRCA2_s_count + 1 }
+        }
+        geneSampleValue <- paste("Multiple;", sep="")
+      } 
+    else if(nrow(geneSampleDataFrame) > 0) 
+      {
+        if (gene == "BRCA1") { BRCA1_s_count <- BRCA1_s_count + 1 }
+        if (gene == "BRCA2") { BRCA2_s_count <- BRCA2_s_count + 1 }
+        geneSampleValue <- paste(geneSampleDataFrame$Variant_Class, ";", sep="")
+      }
+    geneValues <- c(geneValues, geneSampleValue)
+  }
+  
+  sMat <- rbind(sMat, geneValues)
+}
+
+rownames(sMat) <- uniqueSomaticGenes
+colnames(sMat) <- uniqueSomaticSamples
+
+print(BRCA1_s_count)
+print(BRCA2_s_count)
+```
+
+## Somatic data - create heatmap
+
+```{r}
+alter_fun = list(
+    background = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#FFFFFF", col = NA))
+    },
+    Multiple = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#6C14FE", col = NA))
+    },
+    insertion = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#D81738", col = NA))
+    },
+    SNV = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#E48E1E", col = NA))
+    },
+    deletion = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#4AE48B", col = NA))
+    }
+
+)
+
+col = c("Multiple" = "#6C14FE", "insertion" = "#D81738", "SNV" = "#E48E1E","deletion" = "#4AE48B") 
+
+mutationOptions <- c("Multiple", "insertion", "SNV", "deletion")
+
+oncoPrint(sMat, get_type = function(x) strsplit(x, ";")[[1]],
+    alter_fun = alter_fun, col = col, axis_gp = gpar(fontsize = 8),
+    column_title = "Somatic Mutations",
+    heatmap_legend_param = list(title = "Value", at = mutationOptions,
+        labels = mutationOptions))
+```
+
+## Import Methylation data
+
+```{r}
+methylationData <- read_tsv("../Data/methyl_brca_re.tsv")
+
+methylationProbe <- table(methylationData$Probe)
+methylationGenes <- uniqueSomaticGenes
+
+methylationPlotData <- filter(methylationData, Probe %in% methylationGenes)
+
+methylationPlotData$Probe <- factor(methylationPlotData$Probe)
+uniqueMethylationSamples <- sort(unique(methylationData$Sample))
+```
+
+## Filter samples (>= mean + 2 * stdv)
+
+```{r}
+containGenes <- uniqueSomaticGenes
+methylatedSamples <- NULL
+
+geneHyperCutoff <- NULL
+cuttofDF <- NULL
+
+for(gene in containGenes)
+{
+
+  methylationGene <- filter(methylationPlotData, Probe %in% gene)
+  valueGene <- methylationGene$Value
+  stdvGene <- sd(valueGene)
+  meanGene <- mean(valueGene)
+  hypCut <- (meanGene + (2 * stdvGene))
+  if (!is.nan(hypCut))
+  {
+    cutoffVal <- c(gene, hypCut)
+    cutoffDF <- rbind(cutoffDF, cutoffVal)
+  }
+  print(gene)
+  print(hypCut)
+  
+  for(sample in valueGene)
+  {
+    outlierSamples <- NULL
+    outlierValues <- NULL
+    if (sample >= (meanGene + (2 * stdvGene)))
+    {
+      outlierValues <- sample
+    }
+    outlierSamples <- filter(methylationGene, Value %in% outlierValues)
+    
+    methylatedSamples <- rbind(methylatedSamples, outlierSamples)
+  
+  }
+cutoffValue <- (meanGene + (2 * stdvGene))
+tempCutoff <- c(gene, cutoffValue)
+geneHyperCutoff <- rbind(geneHyperCutoff, tempCutoff)
+}
+```
+
+## Write hypermethylation status to file for later use
+## Note - this code currently isn't working, not sure what it's problem is but it doesn't want to cooperate.
+
+```{r}
+
+sampleMetContainer <- NULL
+metSampleNames <- unique(methylationData$Sample)
+metSampleProbes <- unique(methylationData$Probe)
+
+for(sample in metSampleNames)
+{
+  for(probe in metSampleProbes)
+  {
+    tempMetContainer <- NULL
+    lineHypContainer <- NULL
+    lineMetContainer <- NULL
+    lineHypContainer <- filter(methylatedSamples, Sample==sample&&Probe==probe)
+    lineMetContainer <- filter(methylationData, Sample==sample&&Probe==probe)
+    
+    if (nrow(lineHypContainer) > 0 && nrow(lineMetContainer) > 0)
+    {
+      tempMetContainer <- c(lineMetContainer, "Hypermethylated")
+    }
+    else if (nrow(lineMetContainer) > 0)
+    {
+      tempMetContainer <- c(lineMetContainer, "Normal")
+    }
+    if(is.null(tempMetContainer) == FALSE)
+    {
+      sampleMetContainer <- rbind(sampleMetContainer, tempMetContainer)
+    }
+  }
+}
+```
+
+## Combined data - build matricies
+
+```{r}
+combinedSamples <- uniqueSomaticSamples
+uniqueCombinedSamples <- unique(combinedSamples)
+
+geneCounter <- 0
+```
+
+## Create data matrix for combined data
+
+```{r}
+cMat <- NULL
+for (gene in uniqueSomaticGenes)
+{
+  geneValues <- NULL
+  for (sample in uniqueCombinedSamples)
+  {
+    geneCounter <- 0
+    geneSomaticDataFrame <- filter(somaticData, Gene==gene&Sample==sample)
+    geneGermlineDataFrame <- filter(germlineData, Gene==gene&Sample_ID==sample)
+    geneSampleValue <- ""
+  
+    if (nrow(geneSomaticDataFrame) > 0) 
+      {
+        if(nrow(geneGermlineDataFrame) > 0)
+        {
+          geneSampleValue <- paste("Both;", sep="") 
+        }
+        else if(nrow(geneGermlineDataFrame) <= 0) 
+        {
+          geneSampleValue <- paste("Somatic;", sep="")
+        }
+      }
+    else if (nrow(geneSomaticDataFrame) <= 0)
+      {
+        if(nrow(geneGermlineDataFrame) > 0)
+        {
+          geneSampleValue <- paste("Germline;", sep="") 
+        }
+      }
+      
+    geneValues <- c(geneValues, geneSampleValue)
+  }
+  cMat <- rbind(cMat, geneValues)
+}
+
+rownames(cMat) <- uniqueSomaticGenes
+colnames(cMat) <- uniqueCombinedSamples
+```
+
+##Create heatmap for combined data
+
+```{r}
+alter_fun = list(
+    background = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#FFFFFF", col = NA))
+    },
+    Germline = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#000099", col = NA))
+    },
+    Somatic = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#35ABBC", col = NA))
+    },
+    Both = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#e60000", col = NA))
+    }
+
+)
+
+col = c("Germline" = "#000099", "Somatic" = "#35ABBC", "Both" = "#e60000") 
+
+mutationOptions <- c("Germline", "Somatic", "Both")
+
+oncoPrint(cMat, get_type = function(x) strsplit(x, ";")[[1]],
+    alter_fun = alter_fun, col = col, 
+    column_title = "Combined Mutations",
+    heatmap_legend_param = list(title = "Value", at = mutationOptions,
+        labels = mutationOptions))
+```
+
+## Create data matrix for combined data (including methylation data)
+
+```{r}
+cMat <- NULL
+for (gene in uniqueSomaticGenes)
+{
+  geneValues <- NULL
+  for (sample in uniqueCombinedSamples)
+  {
+    geneCounter <- 0
+    geneSomaticDataFrame <- filter(somaticData, Gene==gene&Sample==sample)
+    geneGermlineDataFrame <- filter(germlineData, Gene==gene&Sample_ID==sample)
+    geneMethylationData <- filter(methylatedSamples, Probe==gene&Sample==sample)
+    geneSampleValue <- ""
+  
+    if (nrow(geneSomaticDataFrame) > 0) 
+      {
+        if(nrow(geneGermlineDataFrame) > 0)
+        {
+          if(nrow(geneMethylationData) > 0 )  {  geneSampleValue <- paste("GerSomMet;", sep="")  }
+          else                                {  geneSampleValue <- paste("GerSom;", sep="")  }
+        }
+        else if(nrow(geneGermlineDataFrame) <= 0) 
+        {
+          if(nrow(geneMethylationData) > 0 )  {  geneSampleValue <- paste("SomMet;", sep="")  }
+          else                                {  geneSampleValue <- paste("Som;", sep="")  }
+        }
+      }
+    else if (nrow(geneSomaticDataFrame) <= 0)
+      {
+        if(nrow(geneGermlineDataFrame) > 0)
+        {
+          if(nrow(geneMethylationData) > 0 )  {  geneSampleValue <- paste("GerMet;", sep="")  }
+          else                                {  geneSampleValue <- paste("Ger;", sep="")  }
+        }
+      }
+      
+    geneValues <- c(geneValues, geneSampleValue)
+  }
+  cMat <- rbind(cMat, geneValues)
+}
+
+rownames(cMat) <- uniqueSomaticGenes
+colnames(cMat) <- uniqueCombinedSamples
+```
+
+
+##Create heatmap for combined data (with methylation)
+
+```{r}
+alter_fun = list(
+    background = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#FFFFFF", col = NA))
+    },
+    ##GerSomMet = function(x, y, w, h) {
+    ##    grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#C6220F", col = NA))
+    ##},
+    GerSom = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#4AE4DE", col = NA))
+    },
+    SomMet = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#FE8514", col = NA))
+    },
+    Som = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#101DBB", col = NA))
+    },
+    GerMet = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#E34AE4", col = NA))
+    },
+    Ger = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#39D83F", col = NA))
+    }
+    
+)
+
+col = c("GerSomMet" = "#C6220F", "GerSom" = "#4AE4DE", "SomMet" = "#FE8514", "Som" = "#101DBB", "GerMet" = "#E34AE4", "Ger" = "#39D83F") 
+
+mutationOptions <- c("GerSomMet", "GerSom", "SomMet", "Som", "GerMet", "Ger")
+
+oncoPrint(cMat, get_type = function(x) strsplit(x, ";")[[1]],
+    alter_fun = alter_fun, col = col, 
+    column_title = "Combined Mutations",
+    heatmap_legend_param = list(title = "Value", at = mutationOptions,
+        labels = mutationOptions))
+```
+
+## Testing
+
+```{r}
+alter_fun = list(
+    background = function(x, y, w, h) {
+        grid.rect(x, y, w*1.9, h*0.9, gp = gpar(fill = "#FFFFFF", col = NA))
+    },
+    ##GerSomMet = function(x, y, w, h) {
+    ##    grid.rect(x, y, w-unit(0.5, "mm"), h-unit(0.5, "mm"), gp = gpar(fill = "#C6220F", col = NA))
+    ##},
+    GerSom = function(x, y, w, h) {
+        grid.rect(x, y, w*1.9, h*0.9, gp = gpar(fill = "#4AE4DE", col = NA))
+    },
+    SomMet = function(x, y, w, h) {
+        grid.rect(x, y, w*1.9, h*0.9, gp = gpar(fill = "#FE8514", col = NA))
+    },
+    Som = function(x, y, w, h) {
+        grid.rect(x, y, w*1.9, h*0.9, gp = gpar(fill = "#101DBB", col = NA))
+    },
+    GerMet = function(x, y, w, h) {
+        grid.rect(x, y, w*1.9, h*0.9, gp = gpar(fill = "#E34AE4", col = NA))
+    },
+    Ger = function(x, y, w, h) {
+        grid.rect(x, y, w*1.9, h*0.9, gp = gpar(fill = "#39D83F", col = NA))
+    }
+    
+)
+
+col = c("GerSomMet" = "#C6220F", "GerSom" = "#4AE4DE", "SomMet" = "#FE8514", "Som" = "#101DBB", "GerMet" = "#E34AE4", "Ger" = "#39D83F") 
+
+mutationOptions <- c("GerSomMet", "GerSom", "SomMet", "Som", "GerMet", "Ger")
+
+oncoPrint(cMat, get_type = function(x) strsplit(x, ";")[[1]],
+    alter_fun = alter_fun, col = col, 
+    column_title = "Combined Mutations",
+    heatmap_legend_param = list(title = "Value", at = mutationOptions,
+        labels = mutationOptions))
+```

@@ -1,0 +1,303 @@
+---
+title: "BRCA_evidence_status"
+author: "Weston Bodily"
+date: "December 20, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(extremevalues)
+```
+
+## Import the necessary datasets
+##    NOTE: It's problematic to generate the Mutational Signature information anew, 
+##    so the "BRCA-like" information must be obtained by first running the script named
+##    "Rtsine_mut_sigs_new.Rmd" to get the "brca-likeness_mut_sig.txt" file first.
+##    Other data sets have BRCA-likeness determined in this script.
+
+```{r}
+methylationData <- as.data.frame(read_tsv("../Data/methyl_brca_re.tsv"))
+
+germlineData <- as.data.frame(read_tsv("../Data/germline_snv_indel.tsv"))
+somaticData <- as.data.frame(read_tsv("../Data/Somatic_ver_1.19.17.txt"))
+
+CNVData <- as.data.frame(read_tsv("../Data/somatic_CNV.tsv"))
+
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+
+```
+
+## Preparatory data formatting
+
+```{r}
+uniqueSomaticGenes <- sort(unique(somaticData$Gene))
+uniqueSomaticSamples <- sort(unique(somaticData$Sample)) ##Added
+
+BRCAGenes <- c("BRCA1", "BRCA2")
+```
+
+## CNV Data - generates insertionCNV, deletionCNV, deletionCNV Dataframes
+
+```{r}
+somaticGene_Symbol <- table(CNVData$Gene_Symbol)
+somaticGenes <- c("BRCA1", "BRCA2") #, "RAD51D", "RAD52", "RAD54B", "NBN",  "MUS81", "EME2", "GIYD1", "GIYD2")
+somaticPlotData <- filter(CNVData, Gene_Symbol %in% somaticGenes)
+somaticPlotData$Gene_Symbol <- factor(somaticPlotData$Gene_Symbol)
+
+CNVFilterFunction <- function(CopyValue) {
+
+  tempNumbers <- c(CopyValue)
+  subtypeSamples <- sort(unique(TCGASubtypeData$Patient_ID))
+  subtypeCategory <- unique(sort(TCGASubtypeData$PAM50))
+  subtypeData <- filter(TCGASubtypeData, PAM50 %in% subtypeCategory)
+  CNVPlotData <- filter(somaticPlotData, Value %in% tempNumbers)
+
+  subtypeDataFrame <- NULL
+
+  CNVPlotData$Sample = substr(CNVPlotData$Sample,1,nchar(CNVPlotData$Sample)-3)
+
+  comboContainer <- inner_join(select(subtypeData, Patient_ID, PAM50), CNVPlotData, by = c("Patient_ID" = "Sample"))
+  comboContainer$PAM50 <- as.factor(comboContainer$PAM50)
+  
+  return(comboContainer)
+
+}
+
+insertionCNV <- CNVFilterFunction(2)
+deletionCNV <- CNVFilterFunction(-2)
+tempNum <- c(2, -2)
+combinedCNV <- CNVFilterFunction(tempNum)
+
+```
+
+# Methylation Data setup (note to self: remember to use germlineData instead of germlineMutationData)
+
+```{r}
+HRR_genes <- c("BRCA1", "BRCA2", "RAD51", "RAD51B", "RAD51D", "DMC1", "XRCC2", "XRCC3", "RAD52", "RAD54L", "RAD54B", "SHFM1", "RAD50", "MRE11A", "NBN", "RBBP8", "MUS81", "EME1", "EME2", "GIYD1", "GIYD2", "GEN1")
+
+germlineMutationFrequencies <- table(germlineData$Gene)
+topGermlineMutationGenes <- names(head(sort(germlineMutationFrequencies, decreasing=TRUE), n=8))
+
+methylationProbe <- table(methylationData$Probe)
+methylationGenes <- topGermlineMutationGenes
+methylationPlotData <- filter(methylationData, Probe %in% methylationGenes)
+methylationPlotData$Probe <- factor(methylationPlotData$Probe)
+uniqueMethylationSamples <- sort(unique(methylationData$Sample))
+
+```
+
+# Methylation data continued, generates "outlierContainer"
+
+```{r}
+geneLoopList <- c("BRCA1", "BRCA2", "RAD54L", "SHFM1", "RBBP8")
+
+limitContainer <- NULL
+outlierContainer <- NULL
+
+for (gene in geneLoopList)
+{
+  geneContainer <- gene
+  methylationGene <- as.data.frame(filter(methylationData, Probe %in% geneContainer))
+  methylationSamples <- methylationGene$Sample
+  methylationValues <- methylationGene$Value
+
+  if(gene %in% c("BRCA1"))
+  {
+    distribution <- "exponential"
+  }
+  else
+  {
+    distribution <- "exponential"
+  }
+
+  methylationOutliers <- getOutliersI(methylationValues, rho=c(1, 1), FLim=c(0.1, 0.9), distribution=distribution)
+  outlierPlot(methylationGene$Value, methylationOutliers, mode="qq")
+  outlierSamples <- methylationSamples[methylationOutliers$iRight]
+
+  for (sample in outlierSamples)
+  {
+    tempCont <- c(sample, gene)
+    outlierContainer <- rbind(outlierContainer, tempCont)
+  }
+  colnames(outlierContainer) <- c("Sample", "Gene")
+}
+
+outlierContainer <- as.data.frame(outlierContainer)
+```
+
+# Iterate through data sets and detect a sample by TCGA_ID, determine BRCA-like status, save info to DF
+# DF's to look through:
+#   outlierContainer (methylation)
+#   deletionCNV (CNV)
+#   mutSigData (Mutational signatures)
+#   somaticData (somatic mutations)
+#   germlineData (germline mutations)
+# Saves to a DF called "cMat"
+
+```{r}
+  cMat <- NULL
+  for (sample_s in uniqueSomaticSamples)
+  {
+    BRCAstatus <- NULL
+    gene_one <- "BRCA1"
+    gene_two <- "BRCA2"
+    mut_sig_name <- "Mutation_sig"
+    
+    geneCounter <- 0
+    geneSomaticB1 <- filter(somaticData, Gene==gene_one&Sample==sample_s)
+    geneGermlineB1 <- filter(germlineData, Gene==gene_one&Sample_ID==sample_s)
+    geneSomaticB2 <- filter(somaticData, Gene==gene_two&Sample==sample_s)
+    geneGermlineB2 <- filter(germlineData, Gene==gene_two&Sample_ID==sample_s)
+    
+    likeMethyl <- filter(outlierContainer, Sample==sample_s)
+    likeCNV <- filter(deletionCNV, Patient_ID==sample_s)
+
+    geneTest1 <- filter(somaticData, Sample==sample_s)
+    geneTest2 <- filter(germlineData, Sample_ID==sample_s)
+    geneSampleValue <- ""
+    
+    if ( nrow(geneGermlineB1) > 0) 
+      {
+        if(nrow(geneGermlineB2) > 0)
+        {       geneSampleValue <- paste("BRCA1_and_BRCA2", sep="")      }
+        else  
+        {       geneSampleValue <- paste("BRCA1", sep="")     }
+      }
+    else if (nrow(geneGermlineB2) > 0)
+      {     geneSampleValue <- paste("BRCA2", sep="")     }
+    else if (nrow(geneSomaticB1) > 0 || nrow(geneSomaticB2) > 0)
+      {     geneSampleValue <- paste("BRCA-like", sep="")      }
+    else if (nrow(likeMethyl) > 0 || nrow(likeCNV) > 0 ) # || nrow(likeMutSig) > 0 )
+      {
+        geneSampleValue <- paste("BRCA-like", sep="")
+      }
+    else {  geneSampleValue <- paste("Other", sep="")  }
+    
+    if (geneSampleValue != "No_data")
+      { BRCAstatus <- c(sample_s, geneSampleValue) }
+  
+  if (is.null(BRCAstatus) == FALSE)
+    { cMat <- rbind(cMat, BRCAstatus) }
+  }
+  colnames(cMat) <- c("Sample", "BRCA_status")
+
+```
+
+# BRCA Evidence
+
+```{r}
+  eMat <- NULL
+  for (sample_s in uniqueSomaticSamples)
+  {
+    BRCAstatus <- NULL
+    gene_one <- "BRCA1"
+    gene_two <- "BRCA2"
+    mut_sig_name <- "Mutation_sig"
+    
+    geneCounter <- 0
+    geneSomaticB1 <- filter(somaticData, Gene==gene_one&Sample==sample_s)
+    geneGermlineB1 <- filter(germlineData, Gene==gene_one&Sample_ID==sample_s)
+    geneSomaticB2 <- filter(somaticData, Gene==gene_two&Sample==sample_s)
+    geneGermlineB2 <- filter(germlineData, Gene==gene_two&Sample_ID==sample_s)
+    
+    likeMethylB1 <- filter(outlierContainer, Sample==sample_s&Gene=="BRCA1")
+    likeMethylB2 <- filter(outlierContainer, Sample==sample_s&Gene=="BRCA2")
+    likeMethyl_O <- filter(outlierContainer, Sample==sample_s)
+    likeCNV1 <- filter(deletionCNV, Patient_ID==sample_s&Gene_Symbol=="BRCA1")
+    likeCNV2 <- filter(deletionCNV, Patient_ID==sample_s&Gene_Symbol=="BRCA2")
+
+    geneTest1 <- filter(somaticData, Sample==sample_s)
+    geneTest2 <- filter(germlineData, Sample_ID==sample_s)
+    geneSampleValue <- ""
+    
+    if (nrow(geneGermlineB1) > 0 & nrow(geneGermlineB2) > 0)
+    {     
+      geneSampleValue <- paste("Germline_BRCA1&2_mutation", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    else if (nrow(geneGermlineB1) > 0 ) 
+    {     
+      geneSampleValue <- paste("Germline_BRCA1_mutation", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    else if (nrow(geneGermlineB2) > 0 ) 
+    {     
+      geneSampleValue <- paste("Germline_BRCA2_mutation", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    if (nrow(geneSomaticB1) > 0)
+    {     
+      geneSampleValue <- paste("Somatic_BRCA1_mutation", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    if (nrow(geneSomaticB2) > 0)
+    {     
+      geneSampleValue <- paste("Somatic_BRCA2_mutation", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    if (nrow(likeMethylB1) > 0 )
+    {     
+      geneSampleValue <- paste("Methylation_BRCA1", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    else if (nrow(likeMethylB2) > 0 )
+    {     
+      geneSampleValue <- paste("Methylation_BRCA2", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+        }
+    else if (nrow(likeMethyl_O) > 0 )
+    {     
+      geneSampleValue <- paste("Methylation_Other", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    if (nrow(likeCNV1) > 0 )
+    {     
+      geneSampleValue <- paste("Deletion_BRCA1", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    if (nrow(likeCNV2) > 0 )
+    {     
+      geneSampleValue <- paste("Deletion_BRCA2", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+
+    if (geneSampleValue == "")
+    {
+      geneSampleValue <- paste("None", sep="")      
+      BRCAstatus <- c(sample_s, geneSampleValue)
+      eMat <- rbind(eMat, BRCAstatus)
+    }
+    
+  }
+  colnames(eMat) <- c("Sample", "BRCA_evidence")
+
+```
+
+# Save DFs to files
+
+```{r}
+write.table(cMat, file="BRCA-like_status.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+write.table(eMat, file="BRCA-like_evidence.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+```

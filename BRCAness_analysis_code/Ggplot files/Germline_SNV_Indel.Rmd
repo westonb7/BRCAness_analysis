@@ -1,0 +1,42 @@
+---
+title: "Germline_SNV_Indel"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Define height and width for images to be saved
+
+```{r}
+img_h <- 7
+img_w <- 6.5
+```
+
+## Germline SNVs and Indels
+
+## The following graph indicates the number of genes with observed SNVs or Indels observed in TCGA breast-cancer patients.
+
+```{r}
+germlineMutationData <- read_tsv("../Data/germline_snv_indel.tsv")
+
+germlineMutationFrequencies <- table(germlineMutationData$Gene)
+topGermlineMutationGenes <- names(head(sort(germlineMutationFrequencies, decreasing=TRUE), n=11))
+
+germlineMutationPlotData <- filter(germlineMutationData, Gene %in% topGermlineMutationGenes)
+germlineMutationPlotData$Gene <- factor(germlineMutationPlotData$Gene)
+
+c <- ggplot(germlineMutationPlotData, aes(x=reorder(Gene,Gene, function(x)-length(x)), fill=Mutation_Type))
+c + geom_bar(color = "black") + scale_fill_brewer() + theme_bw() + xlab("Gene") + ylab("Count")
+
+ggsave(filename="../Germline_mutation_bar.pdf", height = img_h, width = img_w, units = "in")
+```

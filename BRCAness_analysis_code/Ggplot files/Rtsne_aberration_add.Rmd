@@ -1,0 +1,67 @@
+---
+title: "Aberration addition"
+output: html_document
+---
+
+## This really ought to just be an R script - all it does is add a column to a 
+##  DF to make a file with an "Aberration" column
+##  This is used in another analysis
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+```{r}
+rtsne_euclid <- as.data.frame((read_tsv("../Data/rtsne_evidence_DF.txt")))
+```
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(rtsne_euclid$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA1_mutation") Som_stat = "BRCA1"
+    else if (x == "Germline_BRCA1_mutation") Som_stat = "BRCA1"
+    else if (x == "Deletion_BRCA1") Som_stat = "BRCA1"
+    else if (x == "Methylation_BRCA1") Som_stat = "BRCA1"
+    else if(x == "Somatic_BRCA2_mutation") Som_stat = "BRCA2"
+    else if (x == "Germline_BRCA2_mutation") Som_stat = "BRCA2"
+    else if (x == "Deletion_BRCA2") Som_stat = "BRCA2"
+    else if (x == "Methylation_BRCA2") Som_stat = "BRCA2"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+rtsne_euclid$Aberration <- new_column
+```
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(rtsne_euclid$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if (x == "Germline_BRCA1_mutation") Som_stat = "BRCA1"
+    else if (x == "Methylation_BRCA1") Som_stat = "BRCA1"
+    else if (x == "Germline_BRCA2_mutation") Som_stat = "BRCA2"
+    else if (x == "Methylation_BRCA2") Som_stat = "BRCA2"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+rtsne_euclid$Ab_ger_met <- new_column
+```
+
+```{r}
+write.table(rtsne_euclid, file="../Data/rtsne_evidence_addition.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+```
+

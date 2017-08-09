@@ -1,0 +1,58 @@
+---
+title: "Euclidean_distance_measure"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+## Define a function to calculate euclidean disance measure
+
+```{r}
+
+euclidean_dist <- function(x1, x2, y1, y2)
+{
+  return(sqrt((x1-y1)^2 + (x2-y2)^2))
+}
+
+```
+
+## Test the function
+
+```{r}
+print(euclidean_dist(1,1,5,5))
+print(euclidean_dist(3,3,3,3))
+```
+
+## Testing/thinking out loud
+##    depending on what I'm doing with it, it may look like this, kinda
+##    assume I'm saving distances to dist_df, and have the values I want in "DF"
+
+```{r}
+
+dist_df <- NULL
+list_bar <- unique(sort(row.names(DF)))
+
+for(sample in list_bar)
+{
+  ##calculate euclidean_dist between this sample and all other samples
+  for (sample_foo in list_bar)
+  {
+    if sample_foo != sample:
+      dist_df <- rbind(dist_df, euclidean_dist(DF[sample, X], DF[sample, Y], DF[sample_foo, X], DF[sample_foo, Y]))
+  }
+}
+
+```
+

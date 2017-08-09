@@ -1,0 +1,441 @@
+---
+title: "Rtsne_mut_sig_euclidean"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(Rtsne)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(data.table)
+```
+
+## Import the Mutational signature data
+
+```{r}
+mut_sigs_origin <- read_tsv("../Data/aggregate_weights_4.txt")
+sampleIDs <- as.vector(as.data.frame(mut_sigs_origin)[,1])
+```
+
+## Format the data 
+
+```{r}
+mut_sigs <- mut_sigs_origin[,-1]
+mut_sigs <- as.matrix(mut_sigs)
+
+row.names(mut_sigs) <- sampleIDs
+mut_sig_cols <- colnames(mut_sigs)
+mut_sig_rows <- row.names(mut_sigs)
+```
+
+## Run Rtsne on the imported data set, and plot it
+
+```{r}
+set.seed(0)
+
+rtsne_out <- Rtsne(mut_sigs, check_duplicates = FALSE, verbose = TRUE)
+plot(rtsne_out$Y)
+```
+
+## Formatting data
+
+```{r}
+rtsne_gg <- as.data.frame(rtsne_out$Y)
+row.names(rtsne_gg) <- row.names(mut_sigs)
+setDT(rtsne_gg, keep.rownames = TRUE)
+colnames(rtsne_gg) <- c("Sample_ID", "V1", "V2")
+```
+
+## Get BRCA status from previously saved file
+
+```{r}
+brcaEvidenceData <- (read_tsv("../Data/BRCA-like_evidence.txt"))
+colnames(brcaEvidenceData) <- c("Sample_ID", "BRCA_evidence")
+mut_evidence <- inner_join(as.data.frame(rtsne_gg), as.data.frame(brcaEvidenceData), by="Sample_ID" )
+```
+
+## Formatting for ease of BRCA status plotting
+
+```{r}
+BR_stat <- NULL
+new_column <- sapply(mut_evidence$BRCA_evidence, function(x)
+  {
+    BR_stat <- ""
+    if(x == "Germline_BRCA1_mutation") BR_stat = "BRCA1"
+    else if (x == "Germline_BRCA2_mutation") BR_stat = "BRCA2"
+    else { BR_stat = "Other" }
+    return(BR_stat)
+  })
+
+mut_evidence$BRCA_status <- new_column
+```
+
+## Formatting for ease of methylation status plotting
+
+```{r}
+met_stat <- NULL
+new_column <- sapply(mut_evidence$BRCA_evidence, function(x)
+  {
+    met_stat <- ""
+    if(x == "Methylation_BRCA1") met_stat = "M1"
+    else if (x == "Methylation_BRCA2") met_stat = "M2"
+    else if (x == "Methylation_Other") met_stat = "MO"
+    else { met_stat = "N" }
+    return(met_stat)
+  })
+
+mut_evidence$Met <- new_column
+```
+
+## Formatting for ease of CNV deletion status plotting
+
+```{r}
+del_stat <- NULL
+new_column <- sapply(mut_evidence$BRCA_evidence, function(x)
+  {
+    del_stat <- ""
+    if(x == "Deletion_BRCA1") del_stat = "D1"
+    else if (x == "Deletion_BRCA2") del_stat = "D2"
+    else if (x == "Deletion_both") del_stat = "D9"
+    else { del_stat = "N" }
+    return(del_stat)
+  })
+
+mut_evidence$CNV <- new_column
+```
+
+## Formatting for ease of somatic mutation status plotting
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(mut_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA1_mutation") Som_stat = "S1"
+    else if (x == "Somatic_BRCA2_mutation") Som_stat = "S2"
+    else if (x == "Somatic_BRCA1&2_mutation") Som_stat = "S9"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+mut_evidence$Som <- new_column
+```
+
+## One last formatting change
+
+```{r}
+colnames(mut_evidence) <- c("Sample_ID", "Val_1", "Val_2", "BRCA_evidence", "BRCA_status", "Met", "CNV", "Som")
+```
+
+## Plotting for BRCA status
+## Needs to be altered
+
+```{r}
+mut_evidence$BRCA_status <- factor(mut_evidence$BRCA_status, levels=c("BRCA1", "BRCA2", "Other"))
+#mut_evidence$CNV <- factor(mut_evidence$CNV, levels=c("N", "D1", "D2"))
+
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$BRCA_status, color=mut_evidence$BRCA_status) ) + 
+  scale_color_manual(name="BRCA status", values = c("BRCA1"="blue", "BRCA2"="green", "Other"="grey"), labels=c("BRCA1", "BRCA2", "Other")) + theme_bw() + 
+  scale_size_manual(values=c("BRCA1"=3, "BRCA2"=3, "Other"=1)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") 
+
+#ggsave(filename="../Thesis_images/Rtsne_mut_E_BRCA.png", height = 8, width = 9, units = "in")
+```
+
+## Plot the CNV status
+
+```{r}
+mut_evidence$CNV <- factor(mut_evidence$CNV, levels=c("N", "D1", "D2"))
+
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$CNV, color=mut_evidence$CNV) ) + 
+  scale_color_manual(name="CNV Deletion evidence", values = c("D1"="blue", "D2"="green", "D9"="cyan", "N"="gray") , labels=c("No deletion", "Deletion BRCA1", "Deletion BRCA2")) + theme_bw() + 
+  scale_size_manual(values=c("D1"=3, "D2"=3, "N"=1)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Deletions")
+
+#ggsave(filename="../Thesis_images/Rtsne_mut_E_deletion.png", height = 8, width = 9, units = "in")
+```
+
+## Plot the Methylation deletion status
+
+```{r}
+mut_evidence$Met <- factor(mut_evidence$Met, levels=c("N", "M1", "M2", "MO"))
+
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$Met, color=mut_evidence$Met) ) + 
+  scale_color_manual(name="Methylation evidence", values = c("M1"="blue", "M2"="green", "MO"="cyan", "N"="gray") , labels=c("No methylation", "Methylation BRCA1", "Methylation BRCA2", "Methylation Other")) + theme_bw() +
+  scale_size_manual(values=c("M1"=3, "M2"=3, "MO"=2, "N"=1)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Methylation")
+
+#ggsave(filename="../Thesis_images/Rtsne_mut_E_methylation.png", height = 8, width = 9, units = "in")
+```
+
+## Plot the somatic mutation status
+
+```{r}
+mut_evidence$Som <- factor(mut_evidence$Som, levels=c("N", "S1", "S2"))
+
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$Som, color=mut_evidence$Som) ) + 
+  scale_color_manual(name="Somatic mutation evidence", values = c("S1"="blue", "S2"="green", "S9"="cyan", "N"="gray") , labels=c("No somatic mutation", "Somatic BRCA1 mutation", "Somatic BRCA2 mutation")) + theme_bw() +
+  scale_size_manual(values=c("S1"=3, "S2"=3, "S9"=2, "N"=1)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Somatic Mutations")
+
+#ggsave(filename="../Thesis_images/Rtsne_mut_E_BRCA.png", height = 8, width = 9, units = "in")
+```
+
+## Add in subtype status to the mut_evidence DF
+
+```{r}
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+
+subtypeSamples <- sort(unique(TCGASubtypeData$Patient_ID))
+subtypeCategory <- unique(sort(TCGASubtypeData$PAM50))
+subtypeData <- filter(TCGASubtypeData, PAM50 %in% subtypeCategory)
+
+subtypeShort <- data.frame(matrix(NA, nrow = 1002, ncol = 2))
+subtypeShort[,1] <- subtypeData[,1]
+subtypeShort[,2] <- subtypeData[,10]
+
+colnames(subtypeShort) <- c("Sample_ID", "PAM50")
+
+rtsne_citrus <- inner_join(as.data.frame(mut_evidence), as.data.frame(subtypeShort), by="Sample_ID" )
+rtsne_citrus <- unique(rtsne_citrus)
+```
+
+## Create new columns for "BRCA1" with the type of aberration
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(mut_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA1_mutation") Som_stat = "S"
+    else if (x == "Germline_BRCA1_mutation") Som_stat = "G"
+    else if (x == "Deletion_BRCA1") Som_stat = "D"
+    else if (x == "Methylation_BRCA1") Som_stat = "M"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+mut_evidence$B1A <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(mut_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA1_mutation") Som_stat = "Y"
+    else if (x == "Germline_BRCA1_mutation") Som_stat = "Y"
+    else if (x == "Deletion_BRCA1") Som_stat = "Y"
+    else if (x == "Methylation_BRCA1") Som_stat = "Y"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+mut_evidence$AnyBRCA1 <- new_column
+```
+
+## Create new columns for "BRCA2" with the type of aberration
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(mut_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA2_mutation") Som_stat = "S"
+    else if (x == "Germline_BRCA2_mutation") Som_stat = "G"
+    else if (x == "Deletion_BRCA2") Som_stat = "D"
+    else if (x == "Methylation_BRCA2") Som_stat = "M"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+mut_evidence$B2A <- new_column
+
+Som_stat <- NULL
+new_column <- sapply(mut_evidence$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA2_mutation") Som_stat = "Y"
+    else if (x == "Germline_BRCA2_mutation") Som_stat = "Y"
+    else if (x == "Deletion_BRCA2") Som_stat = "Y"
+    else if (x == "Methylation_BRCA2") Som_stat = "Y"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+mut_evidence$AnyBRCA2 <- new_column
+```
+
+## Add in the "Max signature" Column from the max sigs file
+
+```{r}
+max_sig_data <- read_tsv("../Data/Max_signatures.txt")
+mut_evidence_2 <- inner_join(as.data.frame(mut_evidence), as.data.frame(max_sig_data), by="Sample_ID" )
+```
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(mut_evidence_2$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if(x == "Somatic_BRCA1_mutation") Som_stat = "BRCA1"
+    else if (x == "Germline_BRCA1_mutation") Som_stat = "BRCA1"
+    else if (x == "Deletion_BRCA1") Som_stat = "BRCA1"
+    else if (x == "Methylation_BRCA1") Som_stat = "BRCA1"
+    else if(x == "Somatic_BRCA2_mutation") Som_stat = "BRCA2"
+    else if (x == "Germline_BRCA2_mutation") Som_stat = "BRCA2"
+    else if (x == "Deletion_BRCA2") Som_stat = "BRCA2"
+    else if (x == "Methylation_BRCA2") Som_stat = "BRCA2"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+mut_evidence_2$Aberration <- new_column
+```
+
+```{r}
+Som_stat <- NULL
+new_column <- sapply(mut_evidence_2$BRCA_evidence, function(x)
+  {
+    Som_stat <- ""
+    if (x == "Germline_BRCA1_mutation") Som_stat = "BRCA1"
+    else if (x == "Methylation_BRCA1") Som_stat = "BRCA1"
+    else if (x == "Germline_BRCA2_mutation") Som_stat = "BRCA2"
+    else if (x == "Methylation_BRCA2") Som_stat = "BRCA2"
+    else { Som_stat = "N" }
+    return(Som_stat)
+  })
+
+mut_evidence_2$Ab_ger_met <- new_column
+```
+
+## Save DF to file
+
+```{r}
+write.table(mut_evidence_2, file="../Data/rtsne_mut_sig_addition.txt", append= FALSE, quote=FALSE, sep="\t", row.names=FALSE)
+```
+
+## Checkpoint read - in file
+
+```{r}
+mut_evidence <- read_tsv("../Data/rtsne_more_m_shirt.txt")
+rtsne_evidence <- read_tsv("../Data/rtsne_more_g_shirt.txt")
+```
+
+## BRCA1 aberrations by type
+
+```{r}
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$B1A, color=mut_evidence$B1A) ) + 
+  scale_color_manual(name="BRCA1 aberration", values = c("D"="blue", "G"="green", "M"="cyan", "N"="gray", "S"="purple") , labels=c("Deletion", "Germline mutation", "Methylation", "None", "Somatic mutation")) + theme_bw() + 
+  scale_size_manual(values=c("D"=2, "G"=2, "M"=2, "N"=1, "S"=2)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="BRCA1 aberrations")
+
+ggsave(filename="../Thesis_images/Rtsne_mut_E_BRCA1_abb.png", height = 8, width = 9, units = "in")
+```
+
+## BRCA2 aberrations by type
+
+```{r}
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$B2A, color=mut_evidence$B2A) ) + 
+  scale_color_manual(name="BRCA2 Aberrations by type", values = c("D"="blue", "G"="green", "M"="cyan", "N"="gray", "S"="purple") , labels=c("Deletion", "Germline mutation", "Methylation", "None", "Somatic mutation")) + theme_bw() + 
+  scale_size_manual(values=c("D"=2, "G"=2, "M"=2, "N"=1, "S"=2)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="BRCA2 aberrations")
+
+ggsave(filename="../Thesis_images/Rtsne_mut_E_BRCA2_abb.png", height = 8, width = 9, units = "in")
+```
+
+## Any BRCA1 aberration
+
+```{r}
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$AnyBRCA1, color=mut_evidence$AnyBRCA1) ) + 
+  scale_color_manual(name="Any BRCA1 Aberrations", values = c("Y"="blue", "N"="gray") , labels=c("None", "BRCA1 aberration")) + theme_bw() + 
+  scale_size_manual(values=c("Y"=2, "N"=1)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Any BRCA1 aberrations")
+
+ggsave(filename="../Thesis_images/Rtsne_mut_E_any_BRCA1.png", height = 8, width = 9, units = "in")
+```
+
+## Any BRCA2 aberration
+
+```{r}
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$AnyBRCA2, color=mut_evidence$AnyBRCA2) ) + 
+  scale_color_manual(name="Any BRCA2 Aberrations", values = c("Y"="blue", "N"="gray") , labels=c("None", "BRCA2 aberration")) + theme_bw() + 
+  scale_size_manual(values=c("Y"=2, "N"=1)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Any BRCA2 aberrations")
+
+ggsave(filename="../Thesis_images/Rtsne_mut_E_any_BRCA2.png", height = 8, width = 9, units = "in")
+```
+
+## Germline/met - BRCA1
+
+```{r}
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$B1A, color=mut_evidence$B1A) ) + 
+  scale_color_manual(name="BRCA1 aberration", values = c("D"="gray", "G"="cyan", "M"="cyan", "N"="gray", "S"="gray") , labels=c("Deletion", "Germline mutation", "Methylation", "None", "Somatic mutation")) + theme_bw() + 
+  scale_size_manual(values=c("D"=2, "G"=2, "M"=2, "N"=1, "S"=2)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Mutation sigs - BRCA1 germline and methylation")
+
+ggsave(filename="../Thesis_images/Rtsne_mut_BRCA1_grm_met.png", height = 8, width = 9, units = "in")
+```
+
+## Germline/met - BRCA2
+
+```{r}
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$B2A, color=mut_evidence$B2A) ) + 
+  scale_color_manual(name="BRCA2 Aberrations by type", values = c("D"="gray", "G"="cyan", "M"="cyan", "N"="gray", "S"="gray") , labels=c("Deletion", "Germline mutation", "Methylation", "None", "Somatic mutation")) + theme_bw() + 
+  scale_size_manual(values=c("D"=2, "G"=2, "M"=2, "N"=1, "S"=2)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Mutation sigs - BRCA2 germline and methylation")
+
+ggsave(filename="../Thesis_images/Rtsne_mut_BRCA2_grm_met.png", height = 8, width = 9, units = "in")
+```
+
+
+```{r}
+c <- ggplot(mut_evidence_2, aes(x=as.numeric(as.character(mut_evidence_2$Val_1)), y=as.numeric(as.character(mut_evidence_2$Val_2)), color=as.character(mut_evidence_2$Max_signature) ) ) + 
+  theme_bw() + scale_color_manual(name="Any BRCA2 Aberrations", values = c("Signature.10"="gray", "Signature.13"="gray", "Signature.16"="gray", "Signature.18"="gray", "Signature.1A"="gray", "Signature.1B"="gray", "Signature.2"="red", "Signature.21"="gray", "Signature.3"="blue", "Signature.4"="gray", "Signature.5"="gray", "Signature.6"="gray", "Signature.8"="gray", "Signature.9"="gray", "Signature.R1"="gray", "Signature.U2"="gray") ) #+ 
+ # scale_size_manual(values=c("Signature.10"="1", "Signature.13"="1", "Signature.16"="1", "Signature.18"="1", "Signature.1A"="1", "Signature.1B"="1", "Signature.2"="1", "Signature.21"="1", "Signature.3"="1", "Signature.4"="1", "Signature.5"="1", "Signature.6"="1", "Signature.8"="1", "Signature.9"="1", "Signature.R1"="1", "Signature.U2"="1")) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Max signature")
+
+# ggsave(filename="../Thesis_images/Rtsne_mut_E_max_sigs.png", height = 8, width = 9, units = "in")
+```
+
+```{r}
+mut_evidence$Som_1 <- factor(mut_evidence$Som_1, levels=c("N", "S1", "S2"))
+
+c <- ggplot(mut_evidence, aes(x=as.numeric(as.character(mut_evidence$Val_1)), y=as.numeric(as.character(mut_evidence$Val_2)), size=mut_evidence$Som_1, color=mut_evidence$Som_1) ) + 
+  scale_color_manual(name="Somatic mutation evidence", values = c("S1"="blue", "S2"="green", "S9"="cyan", "N"="gray") , labels=c("No somatic mutation", "Somatic BRCA1 mutation", "Somatic BRCA2 mutation")) + theme_bw() +
+  scale_size_manual(values=c("S1"=3, "S2"=3, "S9"=2, "N"=1)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Somatic Mutations")
+
+ggsave(filename="../Thesis_images/Rtsne_mut_shirt_BRCA.png", height = 8, width = 9, units = "in")
+```
+
+```{r}
+rtsne_evidence$Som_1 <- factor(rtsne_evidence$Som_1, levels=c("N", "S1", "S2"))
+
+c <- ggplot(rtsne_evidence, aes(x=as.numeric(as.character(rtsne_evidence$Val_1)), y=as.numeric(as.character(rtsne_evidence$Val_2)), size=rtsne_evidence$Som_1, color=rtsne_evidence$Som_1) ) + 
+  scale_color_manual(name="Somatic mutation evidence", values = c("S1"="blue", "S2"="green", "S9"="cyan", "N"="gray") , labels=c("No somatic mutation", "Somatic BRCA1 mutation", "Somatic BRCA2 mutation")) + theme_bw() +
+  scale_size_manual(values=c("S1"=3, "S2"=3, "S9"=2, "N"=1)) + guides(size=FALSE)
+
+c + geom_point() + xlab("Dimension 1") + ylab("Dimension 2") + labs(title="Somatic Mutations")
+
+ggsave(filename="../Thesis_images/Rtsne_gen_shirt_BRCA.png", height = 8, width = 9, units = "in")
+```

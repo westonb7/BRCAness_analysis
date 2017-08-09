@@ -1,0 +1,118 @@
+---
+title: "Histogram_mapping.Rmd"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+```
+
+## Define height and width for images to be saved
+
+```{r}
+img_h <- 7
+img_w <- 6.5
+```
+
+## Define functions 
+
+```{r}
+plot_histogram_med <- function(df, x_int, chart_title, hs_a, hs_b)
+{
+  p <- ggplot(df, aes(x=Median)) + geom_histogram(color="black", fill="white", binwidth=0.2) + labs(title=NULL) + theme_bw() + xlab("Euclidean distance") + ylab("# samples") + theme(plot.title = element_text(hjust = 0.5, size=30, face="bold"))
+  p + geom_vline(aes(xintercept=(x_int)), color = "black", linetype="dashed", size=2) + xlim(hs_a,hs_b)
+}
+```
+
+## Import actual median data
+
+```{r}
+gene_median <- as.data.frame(read_tsv("../Data/basal_non_med.txt"))
+sig_median <- as.data.frame(read_tsv("../Data/sig_3_2_med.txt"))
+pal_median <- as.data.frame(read_tsv("../Data/sig_palb2_medians.txt"))
+
+gene_median <- unique(gene_median)
+sig_median <- unique(sig_median)
+
+row.names(gene_median) <- gene_median$Data_ID
+row.names(sig_median) <- sig_median$Data_ID
+row.names(pal_median) <- pal_median$Data_ID
+```
+
+## Import the randomized median data. Not all this data is used for the histograms
+
+```{r}
+Rando_gen_all_1_1 <- read_tsv("../Data/Rando_gen_all_1_1.txt")
+Rando_gen_all_2_2 <- read_tsv("../Data/Rando_gen_all_2_2.txt")
+Rando_sig_all_1_1 <- read_tsv("../Data/Rando_sig_all_1_1.txt") #
+Rando_sig_all_2_2 <- read_tsv("../Data/Rando_sig_all_2_2.txt")
+Rando_sig_palb2_medians_1 <- read_tsv("../Data/Rando_sig_palb2_medians_1.txt")
+Rando_sig_palb2_medians_2 <- read_tsv("../Data/Rando_sig_palb2_medians_2.txt")
+Rando_sig_palplus_1 <- read_tsv("../Data/Rando_sig_palplus_1.txt")
+Rando_sig_palplus_2 <- read_tsv("../Data/Rando_sig_palplus_2.txt")
+Rando_gen_palb2_medians_1 <- read_tsv("../Data/Rando_gen_palb2_medians_1.txt")
+Rando_gen_palb2_medians_2 <- read_tsv("../Data/Rando_gen_palb2_medians_2.txt")
+Rando_gen_palplus_1 <- read_tsv("../Data/Rando_gen_palplus_1.txt")
+Rando_gen_palplus_2 <- read_tsv("../Data/Rando_gen_palplus_2.txt")
+```
+
+## Read in more data
+
+```{r}
+Rando_gen_BRCA_like <- read_tsv("../Data/fixed_gen_BRCA_like.txt")
+Rando_gen_BRCA_like <- Rando_gen_BRCA_like[1:10000,]
+Rando_gen_BRCA_other <- read_tsv("../Data/fixed_gen_BRCA_other.txt")
+Rando_gen_BRCA_other <- Rando_gen_BRCA_other[1:10000,]
+Rando_sig_BRCA_like <- read_tsv("../Data/fixed_sig_BRCA_like.txt")
+Rando_sig_BRCA_like <- Rando_sig_BRCA_like[1:10000,]
+Rando_sig_BRCA_other <- read_tsv("../Data/fixed_sig_BRCA_other.txt")
+Rando_sig_BRCA_other <- Rando_sig_BRCA_other[1:10000,]
+```
+
+## Plot the data in histograms
+
+```{r}
+plot_histogram_med(Rando_gen_all_1_1, gene_median["G_all_BRCA1_1", "Median"], "Gene expr BRCA1 homogeneity", 5, 30)
+ggsave(filename="../Euc_gen_BRCA1_1.pdf", height = img_h, width = img_w, units = "in")
+plot_histogram_med(Rando_gen_all_2_2, gene_median["G_all_BRCA2_2", "Median"], "Gene expr BRCA2 homogeneity", 5, 30)
+ggsave(filename="../Euc_gen_BRCA2_2.pdf", height = img_h, width = img_h, units = "in")
+```
+
+# Plot histograms 
+
+```{r}
+plot_histogram_med(Rando_sig_all_1_1 , gene_median["G_all_BRCA1_1", "Median"], "Mutation signature BRCA1 homogeneity", 5, 30)
+ggsave(filename="../Euc_sig_BRCA1_1.pdf", height = img_h, width = img_w, units = "in")
+plot_histogram_med(Rando_sig_all_2_2, gene_median["G_all_BRCA2_2", "Median"], "Mutation signature BRCA2 homogeneity", 5, 30)
+ggsave(filename="../Euc_sig_BRCA2_2.pdf", height = img_h, width = img_w, units = "in")
+```
+
+## Plot the histograms for comparing between BRCA, BRCAness, and other.
+
+```{r}
+Rando_gen_BRCA_like <- unique(Rando_gen_BRCA_like)
+plot_histogram_med(Rando_gen_BRCA_like, gene_median["G_BRCA_BRCAlike", "Median"], " ", 13, 25)
+ggsave(filename="../Euc_gen_BRCA_like.pdf", height = img_h, width = img_w, units = "in")
+
+Rando_gen_BRCA_other <- unique(Rando_gen_BRCA_other)
+plot_histogram_med(Rando_gen_BRCA_other, gene_median["G_BRCA_other", "Median"], " ", 13, 25)
+ggsave(filename="../Euc_gen_BRCA_other.pdf", height = img_h, width = img_w, units = "in")
+
+Rando_sig_BRCA_like <- unique(Rando_sig_BRCA_like)
+plot_histogram_med(Rando_sig_BRCA_like, sig_median["G_BRCA_BRCAlike", "Median"], " ", 13, 25)
+ggsave(filename="../Euc_sig_BRCA_like.pdf", height = img_h, width = img_w, units = "in")
+
+Rando_sig_BRCA_other <- unique(Rando_sig_BRCA_other)
+plot_histogram_med(Rando_sig_BRCA_other, sig_median["G_BRCA_other", "Median"], " ", 13, 25)
+ggsave(filename="../Euc_sig_BRCA_other.pdf", height = img_h, width = img_w, units = "in")
+```
+

@@ -1,0 +1,38 @@
+---
+title: "Tf"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## tf data
+
+```{r}
+tfData <- read_tsv("../Data/tf_HiSeqV2_re.tsv")
+
+tfIdentifier <- table(tfData$Identifier)
+tfGenes <- c("BRCA1", "BRCA2", "TP53", "RB1", "PIK3CA")
+
+tfPlotData <- filter(tfData, Identifier %in% tfGenes)
+
+print(tfPlotData)
+
+tfPlotData$Identifier <- factor(tfPlotData$Identifier)
+
+cbbPalette <- c("#0072B2", "#D55E00", "#CC79A7")
+
+c <- ggplot(tfPlotData, aes(Identifier, Value))
+c + geom_jitter(color = "black", width = 0.9, height = 0.9) + xlab("") + theme(text = element_text(size=30), axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggsave(filename="../Thesis_images/tf_HiSeq.png", height = 8, width = 9, units = "in")
+```

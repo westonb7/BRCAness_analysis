@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -o errexit
+
+outDir=Mutect2_VCF_BRCA
+
+mkdir -p $outDir
+rm -rf $outDir/*
+
+for f in Mutect2_VCF/*.vcf.gz
+do
+  isBRCA=$(python IsInList.py $f BRCA_Samples.txt)
+
+  if [[ "$isBRCA" == "True" ]]
+  then
+    outFile=$outDir/$(basename $f)
+
+    cp -v $f $outFile
+  fi
+done

@@ -1,0 +1,100 @@
+---
+title: "CancerSubtype"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prep
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Read in data
+
+```{r}
+TCGASubtypeData <- (read_tsv("../Data/TCGA_Subtypes_Mutations_BasicTabFormatted.txt"))
+TCGASubtypeData <- TCGASubtypeData[,colSums(is.na(TCGASubtypeData))<nrow(TCGASubtypeData)]
+```
+
+## Get somatic data
+
+```{r}
+CNVData <- read_tsv("../Data/somatic_CNV.tsv")
+```
+
+
+```{r}
+somaticGene_Symbol <- table(CNVData$Gene_Symbol)
+#somaticGenes <- c("BRCA1", "BRCA2", "TP53", "RB1", "PIK3CA")
+#somaticGenes <- c("BRCA1", "BRCA2", "RAD51", "RAD51B", "RAD51D", "DMC1", "XRCC2", "XRCC3", "RAD52", "RAD54L", "RAD54B", "SHFM1", "RAD50", "MRE11A", "NBN", "RBBP8", "MUS81", "EME1", "EME2", "GIYD1", "GIYD2", "GEN1")
+
+somaticGenes <- c("BRCA1", "BRCA2", "RAD51D", "RAD52", "RAD54B", "NBN",  "MUS81", "EME2", "GIYD1", "GIYD2")
+
+somaticPlotData <- filter(CNVData, Gene_Symbol %in% somaticGenes)
+#print(somaticPlotData)
+somaticPlotData$Gene_Symbol <- factor(somaticPlotData$Gene_Symbol)
+```
+
+## Define funtion that will sort by subtype, sort by whether or not there are mutations in BRCA1, etc.
+
+```{r}
+CNVFilterFunction <- function(CopyValue) {
+
+  tempNumbers <- c(CopyValue)
+  subtypeSamples <- sort(unique(TCGASubtypeData$Patient_ID))
+  subtypeCategory <- unique(sort(TCGASubtypeData$PAM50))
+  subtypeData <- filter(TCGASubtypeData, PAM50 %in% subtypeCategory)
+  CNVPlotData <- filter(somaticPlotData, Value %in% tempNumbers)
+
+  subtypeDataFrame <- NULL
+
+  CNVPlotData$Sample = substr(CNVPlotData$Sample,1,nchar(CNVPlotData$Sample)-3)
+
+  comboContainer <- inner_join(select(subtypeData, Patient_ID, PAM50), CNVPlotData, by = c("Patient_ID" = "Sample"))
+  comboContainer$PAM50 <- as.factor(comboContainer$PAM50)
+  
+  return(comboContainer)
+}
+```
+
+## Use funciton for values of 2 and -2
+
+```{r}
+insertionDF <- CNVFilterFunction(2)
+deletionDF <- CNVFilterFunction(-2)
+tempNum <- c(2, -2)
+combinedDF <- CNVFilterFunction(tempNum)
+```
+
+## Create bar chart for insertion values
+
+```{r}
+c <- ggplot(insertionDF, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene_Symbol))
+c + geom_bar(color = "black") + xlab("CNV insertions by subtype") + scale_fill_brewer()
+
+#ggsave(filename="../Thesis_images/Subtype_insertion.png", height = 8, width = 9, units = "in")
+```
+
+## Create bar chart for deletion values
+
+```{r}
+c <- ggplot(deletionDF, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene_Symbol))
+c + geom_bar(color = "black") + xlab("CNV deletions by subtype") + scale_fill_brewer()
+
+#ggsave(filename="../Thesis_images/Subtype_deletion.png", height = 8, width = 9, units = "in")
+```
+
+## Create bar chart for combined INS and DEL CNV values
+
+```{r}
+c <- ggplot(combinedDF, aes(x=reorder(PAM50,PAM50, function(x)-length(x)), fill=Gene_Symbol))
+c + geom_bar(color = "black") + xlab("CNVs by subtype") + scale_fill_brewer()
+
+#ggsave(filename="../Thesis_images/Subtype_CNV.png", height = 8, width = 9, units = "in")
+```
